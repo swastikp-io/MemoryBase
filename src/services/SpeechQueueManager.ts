@@ -92,8 +92,9 @@ export class SpeechQueueManager {
       const accessToken = sessionData.session?.access_token || "dummy_token";
 
       const ttsStartTime = Date.now();
-      const payload = { input: task.text, voice: "alloy", model: "tts-1", response_format: "mp3" };
+      const payload = { input: task.text, voice: "alloy", model: "canopylabs/orpheus-v1-english", response_format: "mp3" };
       
+      console.log("TTS request started", payload);
       this.log("Request payload", payload);
       
       const response = await fetch('/api/tts', {
@@ -108,11 +109,41 @@ export class SpeechQueueManager {
       this.log(`Groq response status`, { status: response.status, ok: response.ok });
 
       if (!response.ok) {
-        let errorMsg = await response.text();
-        throw new Error(`Server returned ${response.status}: ${errorMsg}`);
+        let errorData: any = {};
+        try {
+          const errorMsg = await response.text();
+          errorData = JSON.parse(errorMsg);
+        } catch (e) {}
+
+        let humanMessage = "An unknown error occurred while generating speech.";
+        const code = errorData.code;
+
+        if (code === "model_terms_required") {
+          humanMessage = "Text-to-speech is unavailable because the Groq model terms have not been accepted for this account.";
+        } else if (code === "model_not_found") {
+          humanMessage = "The configured TTS model is unavailable. Please verify the model name.";
+        } else if (code === "invalid_api_key") {
+          humanMessage = "The Groq API key is invalid or expired.";
+        } else if (code === "rate_limit_exceeded") {
+          humanMessage = "The Groq usage limit has been reached.";
+        } else if (errorData.error && typeof errorData.error === 'string') {
+          humanMessage = errorData.error;
+        } else if (errorData.raw) {
+          humanMessage = `Groq API Error: ${errorData.raw}`;
+        } else {
+          humanMessage = `Server returned ${response.status}`;
+        }
+
+        if (this.DEBUG_MODE) {
+          console.error("[TTS Debug] Full API Error:", errorData.raw || errorData);
+        }
+        
+        throw new Error(humanMessage);
       }
 
       const audioBlob = await response.blob();
+      console.log("Audio received");
+      console.log(`Audio blob size: ${audioBlob.size}`);
       const generationTime = Date.now() - ttsStartTime;
       
       this.log("Response size", { bytes: audioBlob.size, type: audioBlob.type });
@@ -124,6 +155,7 @@ export class SpeechQueueManager {
 
       this.currentObjectUrl = URL.createObjectURL(audioBlob);
       this.currentAudio = new Audio(this.currentObjectUrl);
+      console.log("Audio element created");
 
       this.currentAudio.onplay = () => {
         this.log("Playback start");
@@ -144,8 +176,11 @@ export class SpeechQueueManager {
       };
 
       try {
+        console.log("Audio.play() called");
         await this.currentAudio.play();
+        console.log("Audio.play() resolved");
       } catch (playError) {
+        console.log("Audio.play() rejected", playError);
         this.error("Autoplay restriction or playback error", playError);
         // Continue queue even if play fails
         this.cleanupCurrentAudio();

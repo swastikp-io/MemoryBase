@@ -181,8 +181,9 @@ export function setupRoutes() {
     const auth = await authenticateRequest(req, res);
     if (!auth) return;
 
-    const { input, voice = "alloy", model = "tts-1", response_format = "mp3" } = req.body;
-    if (!input) {
+    const { input, text, voice = "alloy", model = "canopylabs/orpheus-v1-english", response_format = "mp3" } = req.body;
+    const finalInput = input || text;
+    if (!finalInput) {
       return res.status(400).json({ error: "Input text is required" });
     }
 
@@ -192,7 +193,7 @@ export function setupRoutes() {
         return res.status(500).json({ error: "Groq API key not configured on server" });
       }
 
-      console.log(`[TTS] Requesting audio generation for voice: ${voice}, length: ${input.length}`);
+      console.log(`[TTS] Requesting audio generation for voice: ${voice}, length: ${finalInput.length}`);
       const startTime = Date.now();
 
       const response = await fetch("https://api.groq.com/openai/v1/audio/speech", {
@@ -203,7 +204,7 @@ export function setupRoutes() {
         },
         body: JSON.stringify({
           model,
-          input,
+          input: finalInput,
           voice,
           response_format
         })
@@ -212,7 +213,26 @@ export function setupRoutes() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[TTS] Groq API Error: ${response.status} ${errorText}`);
-        throw new Error(`Groq API Error: ${response.status} ${errorText}`);
+        
+        let errorCode = "unknown_error";
+        let errorDetail = errorText;
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed.error && parsed.error.code) {
+            errorCode = parsed.error.code;
+          } else if (parsed.error && parsed.error.type) {
+            errorCode = parsed.error.type;
+          }
+          if (parsed.error && parsed.error.message) {
+            errorDetail = parsed.error.message;
+          }
+        } catch(e) {}
+
+        return res.status(response.status).json({ 
+          error: "Groq API Error", 
+          code: errorCode, 
+          raw: errorDetail 
+        });
       }
 
       console.log(`[TTS] Generation took ${Date.now() - startTime}ms`);

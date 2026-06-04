@@ -1,4 +1,15 @@
-import loudness from 'loudness';
+let loudnessCache: any = null;
+async function getLoudness() {
+  if (!loudnessCache) {
+    try {
+      loudnessCache = (await import('loudness')).default || await import('loudness');
+    } catch (e) {
+      console.warn("Loudness is not available in this environment.");
+      throw new Error("System audio features are not supported in this environment.");
+    }
+  }
+  return loudnessCache;
+}
 
 export class SystemAudioAgent {
   async adjustVolume(params: { operation: "increase" | "decrease", percentage: number }): Promise<{ success: boolean; message: string; newVolume?: number }> {
@@ -9,6 +20,7 @@ export class SystemAudioAgent {
     }
     
     try {
+      const loudness = await getLoudness();
       const currentVolume = await loudness.getVolume();
       let newVolume = currentVolume;
 
@@ -22,6 +34,7 @@ export class SystemAudioAgent {
       if (newVolume > 100) newVolume = 100;
       
       try {
+        const loudness = await getLoudness();
         await loudness.setVolume(newVolume);
         const actionText = operation === "increase" ? "increased" : "lowered";
         return { 
@@ -41,6 +54,7 @@ export class SystemAudioAgent {
 
   async getVolume(): Promise<{ success: boolean; volume?: number; message?: string }> {
     try {
+      const loudness = await getLoudness();
       const vol = await loudness.getVolume();
       return { success: true, volume: vol };
     } catch (err) {
@@ -54,6 +68,7 @@ export class SystemAudioAgent {
       return { success: false, message: "Invalid volume level." };
     }
     try {
+      const loudness = await getLoudness();
       await loudness.setVolume(volume);
       return { success: true };
     } catch (err) {

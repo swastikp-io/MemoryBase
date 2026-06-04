@@ -1,4 +1,5 @@
-import { chromium, Browser, BrowserContext, Page } from "playwright";
+// Playwright imported dynamically to avoid serverless crash
+import type { Browser, BrowserContext, Page } from "playwright";
 
 export class BrowserManager {
   private static instance: BrowserManager;
@@ -17,9 +18,15 @@ export class BrowserManager {
 
   public async getPage(): Promise<Page> {
     if (!this.browser) {
-      this.browser = await chromium.launch({
-        headless: true, // Run in background to avoid opening a new visible browser
-      });
+      try {
+        const { chromium } = await import("playwright");
+        this.browser = await chromium.launch({
+          headless: true, // Run in background to avoid opening a new visible browser
+        });
+      } catch (error) {
+        console.error("Playwright is not available in this environment", error);
+        throw new Error("Browser automation is not supported in the current environment.");
+      }
     }
 
     if (!this.context) {

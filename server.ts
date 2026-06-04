@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import OpenAI, { toFile } from "openai";
 import dotenv from "dotenv";
 import { ReasoningController } from "./server/orchestrator/reasoningController.ts";
@@ -165,6 +164,68 @@ export function setupRoutes() {
     }
   });
 
+  // Health check endpoint for TTS
+  app.get("/api/tts-health", async (req, res) => {
+    try {
+      const groqKey = process.env.GROQ_API_KEY;
+      if (!groqKey) {
+        return res.status(500).json({ status: "error", message: "GROQ_API_KEY is not configured" });
+      }
+      res.json({ status: "ok", message: "TTS service is healthy and API key is present" });
+    } catch (e: any) {
+      res.status(500).json({ status: "error", message: e.message });
+    }
+  });
+
+  app.post("/api/tts", async (req, res) => {
+    const auth = await authenticateRequest(req, res);
+    if (!auth) return;
+
+    const { input, voice = "alloy", model = "tts-1", response_format = "mp3" } = req.body;
+    if (!input) {
+      return res.status(400).json({ error: "Input text is required" });
+    }
+
+    try {
+      const groqKey = process.env.GROQ_API_KEY;
+      if (!groqKey) {
+        return res.status(500).json({ error: "Groq API key not configured on server" });
+      }
+
+      console.log(`[TTS] Requesting audio generation for voice: ${voice}, length: ${input.length}`);
+      const startTime = Date.now();
+
+      const response = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${groqKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model,
+          input,
+          voice,
+          response_format
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[TTS] Groq API Error: ${response.status} ${errorText}`);
+        throw new Error(`Groq API Error: ${response.status} ${errorText}`);
+      }
+
+      console.log(`[TTS] Generation took ${Date.now() - startTime}ms`);
+      
+      res.setHeader('Content-Type', 'audio/mpeg');
+      const arrayBuffer = await response.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+    } catch (error: any) {
+      console.error("Groq TTS Error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate speech" });
+    }
+  });
+
   // Settings API Routes for Personalization
   app.get("/api/settings/personalization/:userId", (req, res) => {
     const settings = PersonalizationService.getSettings(req.params.userId);
@@ -274,6 +335,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

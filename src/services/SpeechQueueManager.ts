@@ -1,29 +1,51 @@
+import { supabase } from '../lib/supabase';
+
 export class SpeechQueueManager {
   private queue: string[] = [];
   private speaking: boolean = false;
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
-  private resolveCurrent: (() => void) | null = null;
+  private currentAudio: HTMLAudioElement | null = null;
+  private currentObjectUrl: string | null = null;
   
-  // Store utterances globally to prevent Chrome garbage collection bug
-  private activeUtterances: Set<SpeechSynthesisUtterance> = new Set();
+  // Debug mode for production diagnostics
+  private readonly DEBUG_MODE = true;
+
+  private log(message: string, data?: any) {
+    if (this.DEBUG_MODE) {
+      if (data) {
+        console.log(`[TTS Debug] ${message}`, data);
+      } else {
+        console.log(`[TTS Debug] ${message}`);
+      }
+    }
+  }
+
+  private error(message: string, error?: any) {
+    console.error(`[TTS Error] ${message}`, error);
+    // Dispatch custom event for UI error
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('tts-error', { detail: { message, error: error?.message || String(error) } });
+      window.dispatchEvent(event);
+    }
+  }
 
   constructor() {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      // Watchdog timer to recover from stuck speech synthesis state
-      setInterval(() => {
-        if (this.speaking && !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-          console.warn("Speech synthesis appears stuck. Recovering...");
-          this.speaking = false;
-          this.currentUtterance = null;
-          window.speechSynthesis.cancel();
-          this.processQueue();
-        }
-      }, 2000);
+    // Check TTS Health on startup
+    this.checkHealth();
+  }
+
+  private async checkHealth() {
+    try {
+      this.log("Checking /api/tts-health");
+      const res = await fetch("/api/tts-health");
+      const data = await res.json();
+      this.log("Health check response", data);
+    } catch (e) {
+      this.error("Health check failed", e);
     }
   }
 
   public isSpeaking(): boolean {
-    return this.speaking || window.speechSynthesis.speaking;
+    return this.speaking;
   }
 
   public enqueue(text: string): void {
@@ -38,9 +60,6 @@ export class SpeechQueueManager {
     if (!cleanText) return Promise.resolve();
 
     return new Promise<void>((resolve) => {
-      // Instead of just pushing the text, we push an object or wrap it in a way
-      // But since we want speakAndWait to resolve, we can intercept the resolution.
-      // A simpler way: we create a specific task for the queue.
       this.enqueueTask(cleanText, resolve);
     });
   }
@@ -49,13 +68,11 @@ export class SpeechQueueManager {
 
   private enqueueTask(text: string, resolve?: () => void) {
     this.taskQueue.push({ text, resolve });
-    // Delay processQueue slightly to avoid browser bugs when speak() is called immediately after cancel()
     setTimeout(() => {
       this.processQueue();
     }, 50);
   }
 
-  // Override enqueue to use taskQueue
   public enqueueText(text: string) {
     const cleanText = text.replace(/[*_#]/g, '').trim();
     if (!cleanText) return;
@@ -68,38 +85,94 @@ export class SpeechQueueManager {
     this.speaking = true;
     const task = this.taskQueue.shift()!;
 
-    const utterance = new SpeechSynthesisUtterance(task.text);
-    this.currentUtterance = utterance;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.name === "Google UK English Female") || 
-                           voices.find(v => v.name.includes("Hazel")) || 
-                           voices.find(v => v.lang === 'en-GB');
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    try {
+      this.log("Request start", { textLength: task.text.length, textSnippet: task.text.substring(0, 50) });
+      
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token || "dummy_token";
+
+      const ttsStartTime = Date.now();
+      const payload = { input: task.text, voice: "alloy", model: "tts-1", response_format: "mp3" };
+      
+      this.log("Request payload", payload);
+      
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      this.log(`Groq response status`, { status: response.status, ok: response.ok });
+
+      if (!response.ok) {
+        let errorMsg = await response.text();
+        throw new Error(`Server returned ${response.status}: ${errorMsg}`);
+      }
+
+      const audioBlob = await response.blob();
+      const generationTime = Date.now() - ttsStartTime;
+      
+      this.log("Response size", { bytes: audioBlob.size, type: audioBlob.type });
+      this.log("Audio generation time", { ms: generationTime });
+
+      if (audioBlob.size === 0) {
+        throw new Error("Received empty audio blob from server");
+      }
+
+      this.currentObjectUrl = URL.createObjectURL(audioBlob);
+      this.currentAudio = new Audio(this.currentObjectUrl);
+
+      this.currentAudio.onplay = () => {
+        this.log("Playback start");
+      };
+
+      this.currentAudio.onended = () => {
+        this.log("Playback ended smoothly", { duration: this.currentAudio?.duration });
+        this.cleanupCurrentAudio();
+        this.onSpeechFinished();
+        if (task.resolve) task.resolve();
+      };
+
+      this.currentAudio.onerror = (e) => {
+        this.error("Playback failures", e);
+        this.cleanupCurrentAudio();
+        this.onSpeechFinished();
+        if (task.resolve) task.resolve();
+      };
+
+      try {
+        await this.currentAudio.play();
+      } catch (playError) {
+        this.error("Autoplay restriction or playback error", playError);
+        // Continue queue even if play fails
+        this.cleanupCurrentAudio();
+        this.onSpeechFinished();
+        if (task.resolve) task.resolve();
+      }
+    } catch (err) {
+      this.error("TTS generation failed", err);
+      this.onSpeechFinished();
+      if (task.resolve) task.resolve();
     }
+  }
 
-    utterance.onend = () => {
-      this.activeUtterances.delete(utterance);
-      this.onSpeechFinished();
-      if (task.resolve) task.resolve();
-    };
-
-    utterance.onerror = (e) => {
-      console.error("SpeechSynthesis error:", e);
-      this.activeUtterances.delete(utterance);
-      this.onSpeechFinished();
-      if (task.resolve) task.resolve();
-    };
-
-    this.activeUtterances.add(utterance);
-    window.speechSynthesis.speak(utterance);
+  private cleanupCurrentAudio() {
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.src = "";
+      this.currentAudio = null;
+    }
+    if (this.currentObjectUrl) {
+      URL.revokeObjectURL(this.currentObjectUrl);
+      this.currentObjectUrl = null;
+    }
   }
 
   public onSpeechFinished() {
     this.speaking = false;
-    this.currentUtterance = null;
-    // Yield to the event loop before processing the next item to prevent browser TTS freeze
     setTimeout(() => {
       this.processQueue();
     }, 10);
@@ -108,11 +181,11 @@ export class SpeechQueueManager {
   public clearQueue() {
     this.taskQueue = [];
     if (this.speaking) {
-      window.speechSynthesis.cancel();
+      this.cleanupCurrentAudio();
       this.speaking = false;
-      this.currentUtterance = null;
     }
   }
 }
 
 export const speechQueue = new SpeechQueueManager();
+

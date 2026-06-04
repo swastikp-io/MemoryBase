@@ -5,7 +5,7 @@ async function getLoudness() {
       loudnessCache = (await import('loudness')).default || await import('loudness');
     } catch (e) {
       console.warn("Loudness is not available in this environment.");
-      throw new Error("System audio features are not supported in this environment.");
+      throw new Error("System audio controls are only available on the desktop app, not in this web version.");
     }
   }
   return loudnessCache;
@@ -42,13 +42,13 @@ export class SystemAudioAgent {
           message: `Volume ${actionText} by ${percentage} percent. Current volume is ${newVolume} percent.`,
           newVolume 
         };
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to set volume:", err);
-        return { success: false, message: "I couldn't adjust the system volume." };
+        return { success: false, message: err instanceof Error && err.message.includes("desktop app") ? err.message : "I couldn't adjust the system volume." };
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to get volume:", err);
-      return { success: false, message: "I couldn't access the system volume settings." };
+      return { success: false, message: err instanceof Error && err.message.includes("desktop app") ? err.message : "I couldn't access the system volume settings." };
     }
   }
 
@@ -57,9 +57,9 @@ export class SystemAudioAgent {
       const loudness = await getLoudness();
       const vol = await loudness.getVolume();
       return { success: true, volume: vol };
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to get volume:", err);
-      return { success: false, message: "I couldn't access the system volume settings." };
+      return { success: false, message: err instanceof Error && err.message.includes("desktop app") ? err.message : "I couldn't access the system volume settings." };
     }
   }
 
@@ -71,9 +71,9 @@ export class SystemAudioAgent {
       const loudness = await getLoudness();
       await loudness.setVolume(volume);
       return { success: true };
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to set volume:", err);
-      return { success: false, message: "I couldn't adjust the system volume." };
+      return { success: false, message: err instanceof Error && err.message.includes("desktop app") ? err.message : "I couldn't adjust the system volume." };
     }
   }
 }

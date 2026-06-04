@@ -143,6 +143,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       return;
     }
 
+    // Unlock speech synthesis on user interaction (required for Safari/Mobile)
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      const unlockUtterance = new SpeechSynthesisUtterance("");
+      unlockUtterance.volume = 0; // Silent
+      window.speechSynthesis.speak(unlockUtterance);
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);

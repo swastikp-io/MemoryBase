@@ -3,6 +3,9 @@ export class SpeechQueueManager {
   private speaking: boolean = false;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private resolveCurrent: (() => void) | null = null;
+  
+  // Store utterances globally to prevent Chrome garbage collection bug
+  private activeUtterances: Set<SpeechSynthesisUtterance> = new Set();
 
   public isSpeaking(): boolean {
     return this.speaking || window.speechSynthesis.speaking;
@@ -58,16 +61,23 @@ export class SpeechQueueManager {
     }
 
     this.currentUtterance.onend = () => {
+      if (this.currentUtterance) {
+        this.activeUtterances.delete(this.currentUtterance);
+      }
       this.onSpeechFinished();
       if (task.resolve) task.resolve();
     };
 
     this.currentUtterance.onerror = (e) => {
       console.error("SpeechSynthesis error:", e);
+      if (this.currentUtterance) {
+        this.activeUtterances.delete(this.currentUtterance);
+      }
       this.onSpeechFinished();
       if (task.resolve) task.resolve();
     };
 
+    this.activeUtterances.add(this.currentUtterance);
     window.speechSynthesis.speak(this.currentUtterance);
   }
 

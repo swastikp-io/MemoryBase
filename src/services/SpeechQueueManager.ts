@@ -7,6 +7,21 @@ export class SpeechQueueManager {
   // Store utterances globally to prevent Chrome garbage collection bug
   private activeUtterances: Set<SpeechSynthesisUtterance> = new Set();
 
+  constructor() {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      // Watchdog timer to recover from stuck speech synthesis state
+      setInterval(() => {
+        if (this.speaking && !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          console.warn("Speech synthesis appears stuck. Recovering...");
+          this.speaking = false;
+          this.currentUtterance = null;
+          window.speechSynthesis.cancel();
+          this.processQueue();
+        }
+      }, 2000);
+    }
+  }
+
   public isSpeaking(): boolean {
     return this.speaking || window.speechSynthesis.speaking;
   }
@@ -34,7 +49,10 @@ export class SpeechQueueManager {
 
   private enqueueTask(text: string, resolve?: () => void) {
     this.taskQueue.push({ text, resolve });
-    this.processQueue();
+    // Delay processQueue slightly to avoid browser bugs when speak() is called immediately after cancel()
+    setTimeout(() => {
+      this.processQueue();
+    }, 50);
   }
 
   // Override enqueue to use taskQueue
@@ -50,41 +68,41 @@ export class SpeechQueueManager {
     this.speaking = true;
     const task = this.taskQueue.shift()!;
 
-    this.currentUtterance = new SpeechSynthesisUtterance(task.text);
+    const utterance = new SpeechSynthesisUtterance(task.text);
+    this.currentUtterance = utterance;
     
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(v => v.name === "Google UK English Female") || 
                            voices.find(v => v.name.includes("Hazel")) || 
                            voices.find(v => v.lang === 'en-GB');
     if (preferredVoice) {
-      this.currentUtterance.voice = preferredVoice;
+      utterance.voice = preferredVoice;
     }
 
-    this.currentUtterance.onend = () => {
-      if (this.currentUtterance) {
-        this.activeUtterances.delete(this.currentUtterance);
-      }
+    utterance.onend = () => {
+      this.activeUtterances.delete(utterance);
       this.onSpeechFinished();
       if (task.resolve) task.resolve();
     };
 
-    this.currentUtterance.onerror = (e) => {
+    utterance.onerror = (e) => {
       console.error("SpeechSynthesis error:", e);
-      if (this.currentUtterance) {
-        this.activeUtterances.delete(this.currentUtterance);
-      }
+      this.activeUtterances.delete(utterance);
       this.onSpeechFinished();
       if (task.resolve) task.resolve();
     };
 
-    this.activeUtterances.add(this.currentUtterance);
-    window.speechSynthesis.speak(this.currentUtterance);
+    this.activeUtterances.add(utterance);
+    window.speechSynthesis.speak(utterance);
   }
 
   public onSpeechFinished() {
     this.speaking = false;
     this.currentUtterance = null;
-    this.processQueue();
+    // Yield to the event loop before processing the next item to prevent browser TTS freeze
+    setTimeout(() => {
+      this.processQueue();
+    }, 10);
   }
 
   public clearQueue() {

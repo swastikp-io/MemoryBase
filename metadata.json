@@ -1,0 +1,8 @@
+{
+  "name": "Paralex",
+  "description": "A AI web application with a chat interface.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

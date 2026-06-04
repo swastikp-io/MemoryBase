@@ -93,7 +93,7 @@ export const LandingPage: React.FC = () => {
           className="w-full mt-10 rounded-xl overflow-hidden shadow-2xl flex justify-center"
         >
           <img
-            src="/heroimg.jpg"
+            src="/heroimg.png"
             alt="Paralex Interface"
             className="w-full max-w-[1400px] object-cover block"
           />

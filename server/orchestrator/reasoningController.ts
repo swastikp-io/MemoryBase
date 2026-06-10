@@ -2,127 +2,161 @@ import OpenAI from 'openai';
 import { injectContext } from './contextInjector.ts';
 import { PersonalizationService } from '../personalization/personalizationService.ts';
 import { OrchestratorPrompts } from './prompts.ts';
+import { searchWebNative, buildSearchContext } from '../services/search/openrouter-search.ts';
 
-const webSearchRateLimits = new Map<string, number>();
+import type { WebSearchResult } from '../services/search/openrouter-search.ts';
 
 export class ReasoningController {
   static async execute(
     openai: OpenAI, 
     userId: string,
     accessToken: string,
-    messages: any[], 
+    messages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }>, 
     model: string, 
-    searchWeb: boolean,
-    res: any,
+    res: {
+      write: (chunk: string) => boolean;
+    },
     userEmail: string = "unknown@example.com"
   ) {
-    const formattedMessages = await injectContext(userId, accessToken, messages, searchWeb);
+    const isResearch = model === "research" || model === "google/gemma-4-31b-it:free";
+    const isCoding = model === "coding" || model === "moonshotai/kimi-k2.6:free";
+    let actualModel = "openai/gpt-oss-120b:free";
+    let systemPrompt = OrchestratorPrompts.reasoningSystemPrompt;
     
-    // Get user personalization settings
-    const userSettings = PersonalizationService.getSettings(userId);
-    const maxCompletionTokens = 2000;
+    if (isResearch) {
+      actualModel = "google/gemma-4-31b-it:free";
+      systemPrompt = OrchestratorPrompts.researchSystemPrompt;
+    } else if (isCoding) {
+      actualModel = "moonshotai/kimi-k2.6:free";
+      systemPrompt = OrchestratorPrompts.codingSystemPrompt;
+    }
+    
+    // Inject previous conversation / context summarization
+    const formattedMessages = await injectContext(userId, accessToken, messages);
 
-    // Extract the latest user query text (handling both string and array content formats)
     const userQueryMessage = formattedMessages[formattedMessages.length - 1];
     let userQuery = "";
     if (userQueryMessage) {
       if (typeof userQueryMessage.content === 'string') {
         userQuery = userQueryMessage.content;
       } else if (Array.isArray(userQueryMessage.content)) {
-        userQuery = userQueryMessage.content.find((c: any) => c.type === 'text')?.text || "Attached media";
+        const textPart = userQueryMessage.content.find(
+          (c: { type: string; text?: string }) => c.type === 'text'
+        );
+        userQuery = textPart?.text || "Attached media";
       }
     }
 
-    if (searchWeb && userQuery) {
-      const currentUsage = webSearchRateLimits.get(userEmail) || 0;
-      
-      if (currentUsage >= 2) {
-        res.write(`data: ${JSON.stringify({ text: "Web Search rate limited exceeded" })}\n\n`);
-        return;
-      }
-      
-      // Increment the rate limit for this user
-      webSearchRateLimits.set(userEmail, currentUsage + 1);
-
+    // ─── Automatic Web Search (OpenRouter) ──────────────────────────────
+    // Every user message triggers a transparent web search.
+    // If the search fails, we gracefully continue without blocking.
+    if (userQuery) {
       try {
-        const tavilyApiKey = process.env.TAVILY_API_KEY;
-        if (!tavilyApiKey) {
-          console.warn("Tavily API key is missing. Skipping web search.");
-          res.write(`data: ${JSON.stringify({ text: "\\n\\n*(Warning: Web Search is enabled but TAVILY_API_KEY is not configured in the server environment.)*\\n\\n" })}\n\n`);
-        } else {
-          // Inform the user that a search is occurring via a clean JSON flag, no raw text
-          res.write(`data: ${JSON.stringify({ isSearchingWeb: true })}\n\n`);
+        // Signal the frontend that a search is in progress
+        res.write(`data: ${JSON.stringify({ isSearchingWeb: true })}\n\n`);
 
-          const tavilyRes = await fetch("https://api.tavily.com/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              api_key: tavilyApiKey,
-              query: userQuery,
-              search_depth: "basic",
-              max_results: 5,
-              include_images: false
-            })
-          });
+        const searchResults: WebSearchResult[] = await searchWebNative(openai, userQuery);
 
-          if (tavilyRes.ok) {
-            const searchData = await tavilyRes.json();
-            
-            // Format the search results into a readable string for the LLM
-            let searchContext = "\\n\\n=== WEB SEARCH RESULTS ===\\n";
-            if (searchData.results && searchData.results.length > 0) {
-              searchData.results.forEach((result: any, index: number) => {
-                searchContext += `\\n[Source ${index + 1}: ${result.title || 'Untitled'}](${result.url})\\n`;
-                searchContext += `${result.content}\\n`;
-              });
-              searchContext += "\\n==========================\\n\\nUse the search results provided above to answer the user's query comprehensively and accurately. Always cite your sources using the [Source X: Title](URL) format when referencing the data.";
-              
-              // Append to system prompt
-              if (formattedMessages.length > 0 && formattedMessages[0].role === 'system') {
-                formattedMessages[0].content += searchContext;
-              } else {
-                formattedMessages.unshift({ role: 'system', content: searchContext });
-              }
-            }
+        if (searchResults.length > 0) {
+          const searchContext = buildSearchContext(searchResults);
+
+          // Append search context to the system message
+          if (formattedMessages.length > 0 && formattedMessages[0].role === 'system') {
+            formattedMessages[0].content += searchContext;
           } else {
-             console.error("Tavily API failed with status:", tavilyRes.status);
+            formattedMessages.unshift({ role: 'system', content: searchContext });
           }
         }
-      } catch (e) {
-        console.error("Tavily Search Error:", e);
+      } catch (searchError: unknown) {
+        const errorMsg = searchError instanceof Error ? searchError.message : 'Unknown search error';
+        console.error('[ReasoningController] Web search failed gracefully:', errorMsg);
+        // Continue without search results — do not block the response
       }
     }
 
     try {
-      // Fast Mode (Single Pass Linear) - Normal AI assistance
-      const stream = await openai.chat.completions.create({
-        model: model || "meta-llama/Meta-Llama-3-8B-Instruct",
-        messages: formattedMessages as any,
-        stream: true,
-        max_tokens: maxCompletionTokens,
+      // Append the actual system prompt
+      if (formattedMessages.length > 0 && formattedMessages[0].role === 'system') {
+        formattedMessages[0].content = systemPrompt + "\n\n" + formattedMessages[0].content;
+      } else {
+        formattedMessages.unshift({ role: 'system', content: systemPrompt });
+      }
+
+      // Step 1: Internal Plan
+      res.write(`data: ${JSON.stringify({ reasoning: { status: "Thinking...", step: "Planning" } })}\n\n`);
+      
+      let planPrompt = OrchestratorPrompts.reasoningPlanPrompt;
+      if (isResearch) {
+        planPrompt = OrchestratorPrompts.researchPlanPrompt;
+      } else if (isCoding) {
+        planPrompt = OrchestratorPrompts.codingPlanPrompt;
+      }
+      const planResponse = await openai.chat.completions.create({
+        model: actualModel,
+        messages: [...formattedMessages, { role: "user", content: planPrompt }],
+      });
+      const plan = planResponse.choices[0]?.message?.content || "Plan generated.";
+      
+      res.write(`data: ${JSON.stringify({ reasoning: { plan } })}\n\n`);
+      res.write(`data: ${JSON.stringify({ reasoning: { status: "Analyzing...", step: "Drafting" } })}\n\n`);
+
+      // Step 2: Draft Output
+      const draftResponse = await openai.chat.completions.create({
+        model: actualModel,
+        messages: [
+          ...formattedMessages, 
+          { role: "assistant", content: plan },
+          { role: "user", content: "Now write the complete draft following the format requested." }
+        ],
+      });
+      const draft = draftResponse.choices[0]?.message?.content || "";
+
+      res.write(`data: ${JSON.stringify({ reasoning: { status: "Reviewing...", step: "Critiquing" } })}\n\n`);
+
+      // Step 3: Critique
+      const critiqueResponse = await openai.chat.completions.create({
+        model: actualModel,
+        messages: [
+          ...formattedMessages, 
+          { role: "assistant", content: draft },
+          { role: "user", content: OrchestratorPrompts.critiquePrompt }
+        ],
+      });
+      const critique = critiqueResponse.choices[0]?.message?.content || "";
+
+      res.write(`data: ${JSON.stringify({ reasoning: { status: "Completed", isComplete: true } })}\n\n`);
+
+      // Step 4: Final Stream
+      const finalStream = await openai.chat.completions.create({
+        model: actualModel,
+        messages: [
+          ...formattedMessages, 
+          { role: "assistant", content: `Draft:\n${draft}\n\nCritique:\n${critique}` },
+          { role: "user", content: OrchestratorPrompts.improvePrompt }
+        ],
+        stream: true
       });
 
-      let fullResponse = "";
-      for await (const chunk of stream) {
+      for await (const chunk of finalStream) {
         const text = chunk.choices[0]?.delta?.content || "";
         if (text) {
-          fullResponse += text;
           res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
       }
 
       return;
-    } catch (error: any) {
-      if (error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RateLimitError")) {
+    } catch (error: unknown) {
+      const errorObj = error as { status?: number; message?: string };
+      if (errorObj?.status === 429 || errorObj?.message?.includes("429") || errorObj?.message?.includes("RateLimitError")) {
         console.warn(`[ReasoningController] Rate limit exceeded (429).`);
         const errorResponse = "\\n\\n*(Error: Provider rate limit exceeded. Please wait a moment and try again.)*";
         res.write(`data: ${JSON.stringify({ text: errorResponse })}\n\n`);
       } else {
         console.error("Reasoning Controller Error:", error);
         
-        let errorMsg = error.message || "Unknown";
-        if (error?.status === 401 || errorMsg.includes("401") || errorMsg.includes("Missing Authentication header") || errorMsg.includes("Invalid Authentication header")) {
-          errorMsg = "Unauthorized. Please ensure your OpenRouter API Key is entered correctly in Settings.";
+        let errorMsg = errorObj?.message || "Unknown";
+        if (errorObj?.status === 401 || errorMsg.includes("401") || errorMsg.includes("Missing Authentication header") || errorMsg.includes("Invalid Authentication header")) {
+          errorMsg = "Unauthorized. Please ensure your OpenRouter API Key is entered correctly in the .env file.";
         }
 
         const errorResponse = "\\n\\n*(Error executing reasoning network: " + errorMsg + ")*";

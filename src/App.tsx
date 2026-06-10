@@ -7,13 +7,10 @@ import { ChatProvider } from "./context/ChatContext";
 import { LandingPage } from "./pages/LandingPage";
 
 
-import { AuthCallback } from "./pages/AuthCallback";
 import { DocsPage } from "./pages/DocsPage";
 import { AnimatePresence } from "motion/react";
-import { supabase } from "./lib/supabase";
-import { syncProfileFromSupabaseUser, upsertProfileFromSupabaseUser } from "./lib/profileSync";
 import { useSettingsStore } from "./store/settings";
-import { AccentThemeProvider } from "./theme/AccentThemeProvider";
+import { ThemeProvider } from "./theme/ThemeProvider";
 
 function ChatApp() {
   return (
@@ -33,47 +30,23 @@ function AnimatedRoutes() {
         <Route path="/docs" element={<DocsPage />} />
         <Route path="/chat" element={<ProtectedRoute><ChatApp /></ProtectedRoute>} />
 
-        <Route path="/auth/callback" element={<AuthCallback />} />
-
       </Routes>
     </AnimatePresence>
   );
 }
 
-function AuthProfileSync() {
-  useEffect(() => {
-    let isMounted = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (isMounted) {
-        syncProfileFromSupabaseUser(data.session?.user);
-        upsertProfileFromSupabaseUser(data.session?.user).catch(console.error);
-      }
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      syncProfileFromSupabaseUser(session?.user);
-      upsertProfileFromSupabaseUser(session?.user).catch(console.error);
-    });
-
-    return () => {
-      isMounted = false;
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
-  return null;
-}
+import { useThemeValidator } from "./hooks/useThemeValidator";
 
 export default function App() {
+  useThemeValidator();
+
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <AccentThemeProvider>
+    <BrowserRouter>
+      <ThemeProvider>
         <ChatProvider>
-          <AuthProfileSync />
           <AnimatedRoutes />
         </ChatProvider>
-      </AccentThemeProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { AccentColorSelector } from '../components/AccentColorSelector';
+import { ThemeSelector } from '../components/ThemeSelector';
 
 const SectionTitle = ({ title, description }: { title: string; description?: string }) => (
   <div className="mb-6">
@@ -12,16 +12,10 @@ const SectionTitle = ({ title, description }: { title: string; description?: str
 export const GeneralSettings: React.FC = () => {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <SectionTitle title="General" description="General application settings." />
+      <SectionTitle title="Appearance" description="Customize the application theme and colors." />
       
       <div className="space-y-4">
-        <div className="flex items-center justify-between py-1 gap-6">
-          <div className="flex-1 min-w-0">
-            <h4 className="text-[15px] font-medium text-text-primary mb-0.5">Accent Color</h4>
-            <p className="text-xs sm:text-sm text-text-secondary leading-relaxed pr-2">Choose an accent color for the Paralex UI.</p>
-          </div>
-          <AccentColorSelector />
-        </div>
+        <ThemeSelector />
       </div>
     </motion.div>
   );

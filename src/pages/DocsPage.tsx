@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Command, ArrowLeft, Mic, Brain, Database, Copy, Check, Info, LayoutTemplate, Cpu, Search, Link as LinkIcon, BookOpen } from "lucide-react";
+import { Command, ArrowLeft, Brain, Database, Copy, Check, Info, LayoutTemplate, Cpu, Search, Link as LinkIcon, BookOpen } from "lucide-react";
 
 const CodeBlock = () => {
   const [copied, setCopied] = useState(false);
@@ -14,21 +14,21 @@ const CodeBlock = () => {
   };
 
   return (
-    <div className="relative group rounded-3xl overflow-hidden bg-[#050505] border border-white/10 shadow-2xl">
-      <div className="flex items-center justify-between px-6 py-4 bg-[#0a0a0a] border-b border-white/5">
-        <span className="text-sm font-mono text-white/40">bash</span>
+    <div className="relative group rounded-3xl overflow-hidden bg-[var(--surfaceSecondary)] border border-[var(--border)] shadow-2xl">
+      <div className="flex items-center justify-between px-6 py-4 bg-[var(--surface)] border-b border-[var(--border)]">
+        <span className="text-sm font-mono text-[var(--textTertiary)]">bash</span>
         <button 
           onClick={handleCopy} 
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-white" 
+          className="p-2 hover:bg-[var(--surfaceSecondary)] rounded-lg transition-colors text-[var(--textTertiary)] hover:text-[var(--textPrimary)]" 
           aria-label="Copy code"
         >
           {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
         </button>
       </div>
-      <pre className="p-8 overflow-x-auto m-0 text-[15px] font-mono leading-loose text-white/80 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <span className="text-white/40"># Setting up your workspace</span>{"\n\n"}
-        <span className="text-purple-400">export</span> <span className="text-blue-300">OPENROUTER_API_KEY</span>=<span className="text-green-300">"sk-or-v1-..."</span>{"\n"}
-        <span className="text-purple-400">export</span> <span className="text-blue-300">DEFAULT_MODEL</span>=<span className="text-green-300">"anthropic/claude-3-5-sonnet"</span>
+      <pre className="p-8 overflow-x-auto m-0 text-[15px] font-mono leading-loose text-[var(--textSecondary)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <span className="text-[var(--textTertiary)]"># Setting up your workspace</span>{"\n\n"}
+        <span className="text-[var(--accent)]">export</span> <span className="text-[var(--textPrimary)]">OPENROUTER_API_KEY</span>=<span className="text-[var(--success)]">"sk-or-v1-..."</span>{"\n"}
+        <span className="text-[var(--accent)]">export</span> <span className="text-[var(--textPrimary)]">DEFAULT_MODEL</span>=<span className="text-[var(--success)]">"anthropic/claude-3-5-sonnet"</span>
       </pre>
     </div>
   );
@@ -37,27 +37,27 @@ const CodeBlock = () => {
 const Callout = ({ children, title }: { children: React.ReactNode, title?: string }) => {
   return (
     <div className="flex gap-5 p-6 rounded-2xl bg-blue-500/10 border border-blue-500/20 mb-8 mt-2">
-      <Info className="w-6 h-6 text-blue-400 shrink-0 mt-0.5" />
+      <Info className="w-6 h-6 text-[var(--accent)] shrink-0 mt-0.5" />
       <div>
-        {title && <h5 className="text-lg font-medium text-blue-100 mb-2">{title}</h5>}
-        <div className="text-blue-100/70 text-base leading-relaxed">{children}</div>
+        {title && <h5 className="text-lg font-medium text-[var(--textPrimary)] mb-2">{title}</h5>}
+        <div className="text-[var(--textSecondary)] text-base leading-relaxed">{children}</div>
       </div>
     </div>
   );
 };
 
 const ArchitectureCard = ({ title, items, icon: Icon }: any) => (
-  <div className="p-8 rounded-3xl bg-[#161514] border border-white/5 hover:border-white/10 transition-colors h-full flex flex-col">
+  <div className="p-8 rounded-3xl bg-[var(--surfaceSecondary)] border border-[var(--border)] hover:border-[var(--border)] transition-colors h-full flex flex-col">
     <div className="flex items-center gap-4 mb-6">
-      <div className="p-3 rounded-xl bg-[#222] border border-white/5 text-white/80">
+      <div className="p-3 rounded-xl bg-[var(--surfaceSecondary)] border border-[var(--border)] text-[var(--textSecondary)]">
         <Icon className="w-6 h-6" />
       </div>
-      <h3 className="text-xl font-medium text-white">{title}</h3>
+      <h3 className="text-xl font-medium text-[var(--textPrimary)]">{title}</h3>
     </div>
     <ul className="space-y-4 flex-1">
       {items.map((item: string, i: number) => (
-        <li key={i} className="flex items-start gap-4 text-lg text-white/60 leading-relaxed">
-          <span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />
+        <li key={i} className="flex items-start gap-4 text-lg text-[var(--textSecondary)] leading-relaxed">
+          <span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-[var(--surfaceSecondary)] shrink-0" />
           {item}
         </li>
       ))}
@@ -66,12 +66,12 @@ const ArchitectureCard = ({ title, items, icon: Icon }: any) => (
 );
 
 const FeatureCard = ({ title, description, icon: Icon }: any) => (
-  <div className="p-8 rounded-3xl bg-[#161514] border border-white/5 hover:border-white/10 transition-colors h-full flex flex-col">
-    <div className="p-4 w-fit rounded-2xl bg-[#222] border border-white/5 mb-8">
-      <Icon className="w-7 h-7 text-white/80" />
+  <div className="p-8 rounded-3xl bg-[var(--surfaceSecondary)] border border-[var(--border)] hover:border-[var(--border)] transition-colors h-full flex flex-col">
+    <div className="p-4 w-fit rounded-2xl bg-[var(--surfaceSecondary)] border border-[var(--border)] mb-8">
+      <Icon className="w-7 h-7 text-[var(--textSecondary)]" />
     </div>
-    <h3 className="text-2xl font-medium text-white mb-4">{title}</h3>
-    <p className="text-lg text-white/60 leading-8 flex-1">{description}</p>
+    <h3 className="text-2xl font-medium text-[var(--textPrimary)] mb-4">{title}</h3>
+    <p className="text-lg text-[var(--textSecondary)] leading-8 flex-1">{description}</p>
   </div>
 );
 
@@ -137,18 +137,18 @@ export const DocsPage: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -15 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-screen font-sans bg-[#121110] text-white selection:bg-white selection:text-black"
+      className="min-h-screen font-sans bg-[var(--background)] text-[var(--textPrimary)] selection:bg-[var(--textPrimary)] selection:text-[var(--background)]"
     >
       
       {/* Header */}
-      <nav className="fixed w-full left-0 top-0 z-50 flex items-center justify-between px-6 py-4 bg-[#121110]/95 backdrop-blur-md border-b border-white/[0.05]">
+      <nav className="fixed w-full left-0 top-0 z-50 flex items-center justify-between px-6 py-4 bg-[var(--background)]/95 backdrop-blur-md border-b border-[var(--border)]">
         <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <Command className="w-5 h-5 text-white" />
-          <span className="font-sans font-semibold text-lg tracking-tight text-white uppercase">Paralex</span>
+          <Command className="w-5 h-5 text-[var(--textPrimary)]" />
+          <span className="font-sans font-semibold text-lg tracking-tight text-[var(--textPrimary)] uppercase">Paralex</span>
         </Link>
         
         <div className="flex items-center gap-4 text-sm font-medium">
-          <Link to="/" className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+          <Link to="/" className="flex items-center gap-2 text-[var(--textSecondary)] hover:text-[var(--textPrimary)] transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Home
           </Link>
         </div>
@@ -163,17 +163,17 @@ export const DocsPage: React.FC = () => {
             
             {/* Header Area */}
             <div className="mb-32">
-              <div className="flex items-center gap-4 text-[15px] font-medium text-white/40 mb-8 border-b border-white/10 pb-5">
+              <div className="flex items-center gap-4 text-[15px] font-medium text-[var(--textTertiary)] mb-8 border-b border-[var(--border)] pb-5">
                 <span className="flex items-center gap-2"><BookOpen className="w-4 h-4" /> Documentation</span>
                 <span>•</span>
                 <span>Last Updated: June 2026</span>
                 <span>•</span>
                 <span>Version: 1.0.0</span>
               </div>
-              <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-white mb-8 leading-[1.1]">
+              <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-[var(--textPrimary)] mb-8 leading-[1.1]">
                 Everything you need to know about Paralex
               </h1>
-              <p className="text-xl md:text-2xl text-white/60 leading-[1.6] max-w-[65ch]">
+              <p className="text-xl md:text-2xl text-[var(--textSecondary)] leading-[1.6] max-w-[65ch]">
                 The intelligent AI workspace built for deep, productive work.
               </p>
             </div>
@@ -181,11 +181,11 @@ export const DocsPage: React.FC = () => {
             {/* Section 1: What is Paralex */}
             <section id="introduction" className="scroll-mt-32 mb-32 group">
               <div className="flex items-center gap-3 mb-10">
-                <h2 className="text-4xl font-medium text-white">What is Paralex?</h2>
-                <LinkIcon className="w-6 h-6 text-white/0 group-hover:text-white/20 transition-colors cursor-pointer" onClick={() => scrollTo('introduction')} />
+                <h2 className="text-4xl font-medium text-[var(--textPrimary)]">What is Paralex?</h2>
+                <LinkIcon className="w-6 h-6 text-transparent group-hover:text-[var(--textTertiary)] transition-colors cursor-pointer" onClick={() => scrollTo('introduction')} />
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 xl:gap-16 items-start">
-                <div className="text-lg text-white/70 leading-8 space-y-8 max-w-[75ch]">
+                <div className="text-lg text-[var(--textSecondary)] leading-8 space-y-8 max-w-[75ch]">
                   <p>
                     Paralex is a context-aware, persistent AI assistant designed for deep, productive work. Unlike traditional chat interfaces, Paralex functions as an integrated workspace that remembers your context, reasons through complex problems, and provides reliable, structured answers.
                   </p>
@@ -193,9 +193,9 @@ export const DocsPage: React.FC = () => {
                     Built to make you extraordinarily productive, it serves as a unified command center for all your AI needs.
                   </p>
                 </div>
-                <div className="bg-[#181716] p-8 md:p-10 rounded-3xl border border-white/5">
-                  <h3 className="text-2xl font-medium text-white mb-4">The Paralex Philosophy</h3>
-                  <p className="text-white/60 text-lg leading-8">
+                <div className="bg-[var(--surfaceSecondary)] p-8 md:p-10 rounded-3xl border border-[var(--border)]">
+                  <h3 className="text-2xl font-medium text-[var(--textPrimary)] mb-4">The Paralex Philosophy</h3>
+                  <p className="text-[var(--textSecondary)] text-lg leading-8">
                     We believe AI tools shouldn't just be conversational bots. They should be integrated, stateful extensions of your thought process. Everything we build is centered around minimizing friction and maximizing context retention.
                   </p>
                 </div>
@@ -205,10 +205,10 @@ export const DocsPage: React.FC = () => {
             {/* Section 2: Architecture */}
             <section id="architecture" className="scroll-mt-32 mb-32 group">
               <div className="flex items-center gap-3 mb-10">
-                <h2 className="text-4xl font-medium text-white">Architecture</h2>
-                <LinkIcon className="w-6 h-6 text-white/0 group-hover:text-white/20 transition-colors cursor-pointer" onClick={() => scrollTo('architecture')} />
+                <h2 className="text-4xl font-medium text-[var(--textPrimary)]">Architecture</h2>
+                <LinkIcon className="w-6 h-6 text-transparent group-hover:text-[var(--textTertiary)] transition-colors cursor-pointer" onClick={() => scrollTo('architecture')} />
               </div>
-              <p className="text-lg text-white/70 leading-8 mb-12 max-w-[75ch]">
+              <p className="text-lg text-[var(--textSecondary)] leading-8 mb-12 max-w-[75ch]">
                 Paralex is built with a modern, high-performance tech stack ensuring speed and reliability:
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -233,15 +233,11 @@ export const DocsPage: React.FC = () => {
             {/* Section 3: Features */}
             <section id="features" className="scroll-mt-32 mb-32 group">
               <div className="flex items-center gap-3 mb-10">
-                <h2 className="text-4xl font-medium text-white">Features</h2>
-                <LinkIcon className="w-6 h-6 text-white/0 group-hover:text-white/20 transition-colors cursor-pointer" onClick={() => scrollTo('features')} />
+                <h2 className="text-4xl font-medium text-[var(--textPrimary)]">Features</h2>
+                <LinkIcon className="w-6 h-6 text-transparent group-hover:text-[var(--textTertiary)] transition-colors cursor-pointer" onClick={() => scrollTo('features')} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <FeatureCard 
-                  title="Voice Commands" 
-                  icon={Mic} 
-                  description="Navigate, type, and command Paralex entirely using natural voice. Integrated speech-to-text ensures low latency and high accuracy." 
-                />
+
                 <FeatureCard 
                   title="Persistent Memory" 
                   icon={Database} 
@@ -263,11 +259,11 @@ export const DocsPage: React.FC = () => {
             {/* Section 4: Configuration */}
             <section id="configuration" className="scroll-mt-32 mb-32 group">
               <div className="flex items-center gap-3 mb-10">
-                <h2 className="text-4xl font-medium text-white">Configuration</h2>
-                <LinkIcon className="w-6 h-6 text-white/0 group-hover:text-white/20 transition-colors cursor-pointer" onClick={() => scrollTo('configuration')} />
+                <h2 className="text-4xl font-medium text-[var(--textPrimary)]">Configuration</h2>
+                <LinkIcon className="w-6 h-6 text-transparent group-hover:text-[var(--textTertiary)] transition-colors cursor-pointer" onClick={() => scrollTo('configuration')} />
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-5 gap-12 xl:gap-16 items-start">
-                <div className="xl:col-span-2 text-lg text-white/70 leading-8 space-y-8 max-w-[75ch]">
+                <div className="xl:col-span-2 text-lg text-[var(--textSecondary)] leading-8 space-y-8 max-w-[75ch]">
                   <p>
                     Setting up Paralex is straightforward. You have full control over which models to use and how they are authenticated.
                   </p>
@@ -282,37 +278,37 @@ export const DocsPage: React.FC = () => {
             </section>
 
             {/* Section 5: Getting Started */}
-            <section id="getting-started" className="scroll-mt-32 mb-10 group border-t border-white/5 pt-32">
+            <section id="getting-started" className="scroll-mt-32 mb-10 group border-t border-[var(--border)] pt-32">
               <div className="flex items-center gap-3 mb-16">
-                <h2 className="text-4xl font-medium text-white">Getting Started</h2>
-                <LinkIcon className="w-6 h-6 text-white/0 group-hover:text-white/20 transition-colors cursor-pointer" onClick={() => scrollTo('getting-started')} />
+                <h2 className="text-4xl font-medium text-[var(--textPrimary)]">Getting Started</h2>
+                <LinkIcon className="w-6 h-6 text-transparent group-hover:text-[var(--textTertiary)] transition-colors cursor-pointer" onClick={() => scrollTo('getting-started')} />
               </div>
               
               <div className="flex flex-col md:flex-row gap-10 md:gap-6 lg:gap-10 relative">
-                <div className="hidden md:block absolute top-[35px] left-10 right-10 h-px bg-white/10" />
+                <div className="hidden md:block absolute top-[35px] left-10 right-10 h-px bg-[var(--surfaceSecondary)]" />
                 
                 <div className="flex-1 relative z-10 flex flex-col items-center md:items-start text-center md:text-left">
-                  <div className="w-16 h-16 rounded-full bg-[#181716] border border-white/20 flex items-center justify-center text-xl font-medium text-white shadow-xl mb-8">1</div>
-                  <h4 className="text-xl font-medium text-white mb-3">Download</h4>
-                  <p className="text-white/60 text-lg leading-relaxed">Get the application or access the web interface.</p>
+                  <div className="w-16 h-16 rounded-full bg-[var(--surfaceSecondary)] border border-[var(--border)] flex items-center justify-center text-xl font-medium text-[var(--textPrimary)] shadow-xl mb-8">1</div>
+                  <h4 className="text-xl font-medium text-[var(--textPrimary)] mb-3">Download</h4>
+                  <p className="text-[var(--textSecondary)] text-lg leading-relaxed">Get the application or access the web interface.</p>
                 </div>
                 
                 <div className="flex-1 relative z-10 flex flex-col items-center md:items-start text-center md:text-left">
-                  <div className="w-16 h-16 rounded-full bg-[#181716] border border-white/20 flex items-center justify-center text-xl font-medium text-white shadow-xl mb-8">2</div>
-                  <h4 className="text-xl font-medium text-white mb-3">Sign In</h4>
-                  <p className="text-white/60 text-lg leading-relaxed">Use your preferred secure authentication method.</p>
+                  <div className="w-16 h-16 rounded-full bg-[var(--surfaceSecondary)] border border-[var(--border)] flex items-center justify-center text-xl font-medium text-[var(--textPrimary)] shadow-xl mb-8">2</div>
+                  <h4 className="text-xl font-medium text-[var(--textPrimary)] mb-3">Sign In</h4>
+                  <p className="text-[var(--textSecondary)] text-lg leading-relaxed">Use your preferred secure authentication method.</p>
                 </div>
 
                 <div className="flex-1 relative z-10 flex flex-col items-center md:items-start text-center md:text-left">
-                  <div className="w-16 h-16 rounded-full bg-[#181716] border border-white/20 flex items-center justify-center text-xl font-medium text-white shadow-xl mb-8">3</div>
-                  <h4 className="text-xl font-medium text-white mb-3">Configure</h4>
-                  <p className="text-white/60 text-lg leading-relaxed">Set up your OpenRouter key in the settings panel.</p>
+                  <div className="w-16 h-16 rounded-full bg-[var(--surfaceSecondary)] border border-[var(--border)] flex items-center justify-center text-xl font-medium text-[var(--textPrimary)] shadow-xl mb-8">3</div>
+                  <h4 className="text-xl font-medium text-[var(--textPrimary)] mb-3">Configure</h4>
+                  <p className="text-[var(--textSecondary)] text-lg leading-relaxed">Set up your OpenRouter key in the settings panel.</p>
                 </div>
 
                 <div className="flex-1 relative z-10 flex flex-col items-center md:items-start text-center md:text-left">
-                  <div className="w-16 h-16 rounded-full bg-[#181716] border border-white/20 flex items-center justify-center text-xl font-medium text-white shadow-xl mb-8">4</div>
-                  <h4 className="text-xl font-medium text-white mb-3">Start</h4>
-                  <p className="text-white/60 text-lg leading-relaxed">Chat, use voice commands, or drop files to begin.</p>
+                  <div className="w-16 h-16 rounded-full bg-[var(--surfaceSecondary)] border border-[var(--border)] flex items-center justify-center text-xl font-medium text-[var(--textPrimary)] shadow-xl mb-8">4</div>
+                  <h4 className="text-xl font-medium text-[var(--textPrimary)] mb-3">Start</h4>
+                  <p className="text-[var(--textSecondary)] text-lg leading-relaxed">Chat or drop files to begin.</p>
                 </div>
               </div>
             </section>

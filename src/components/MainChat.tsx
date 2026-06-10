@@ -4,75 +4,47 @@ import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
 import { useChat, Message } from "../context/ChatContext";
 import { useSettingsStore } from "../store/settings";
-import { ChevronDown, Check, VolumeX } from "lucide-react";
-import { supabase } from "../lib/supabase";
-import { ModelPicker, AIModel } from "./ModelPicker";
 import { DocumentOutline } from "./markdown/DocumentOutline";
-import { streamingTTS } from '../services/StreamingTTS';
-import { speechQueue } from '../services/SpeechQueueManager';
+
 
 export const MainChat: React.FC = () => {
-  const { chats, currentChatId, currentMessages, addMessage, updateModelMessage, updateChatModel, updateChatTitle, editAndTruncateAndAddMessage, createNewChat } = useChat();
+  const { chats, currentChatId, currentMessages, addMessage, updateModelMessage, updateChatModel, updateChatTitle, updateReasoningState, editAndTruncateAndAddMessage, createNewChat } = useChat();
   const settings = useSettingsStore();
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
-
-  const [aiModels, setAiModels] = useState<AIModel[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState('fast-answers');
-  const [voiceMode, setVoiceMode] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<'research' | 'reasoning' | 'coding'>('research');
 
   useEffect(() => {
-    const fetchModels = async () => {
-      const { data } = await supabase.from('ai_models').select('*').eq('active', true).order('id');
-      if (data && data.length > 0) {
-        setAiModels(data);
+    const inputContainer = document.getElementById('chat-input-container');
+    if (!inputContainer) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        document.documentElement.style.setProperty('--input-height', `${entry.contentRect.height}px`);
       }
-    };
-    fetchModels();
+    });
+    
+    observer.observe(inputContainer);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
     const currentChat = chats.find(c => c.id === currentChatId);
-    if (currentChat?.modelId) {
-      setSelectedModelId(currentChat.modelId);
+    if (currentChat?.modelId && (currentChat.modelId === 'research' || currentChat.modelId === 'reasoning' || currentChat.modelId === 'coding')) {
+      setSelectedMode(currentChat.modelId as 'research' | 'reasoning' | 'coding');
     }
   }, [currentChatId, chats]);
 
-  const handleSelectModel = (id: string) => {
-    setSelectedModelId(id);
+  const handleSelectMode = (mode: 'research' | 'reasoning' | 'coding') => {
+    setSelectedMode(mode);
     if (currentChatId) {
-      updateChatModel(currentChatId, id);
+      updateChatModel(currentChatId, mode);
     }
   };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsModelSelectorOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Shift" && speechQueue.isSpeaking()) {
-        settings.updateVoiceExperience({ autoSpeakAI: false });
-        speechQueue.clearQueue();
-        
-        const modelMessageId = Date.now().toString();
-        const newModelMessage: Message = { id: modelMessageId, role: "model", content: "Voice responses muted." };
-        addMessage(newModelMessage, currentChatId || undefined);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [settings, addMessage, currentChatId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -92,10 +64,7 @@ export const MainChat: React.FC = () => {
 
 
 
-  const streamResponse = async (messages: Message[], activeChatId: string, modelMessageId: string, searchWeb: boolean = false, useVoiceResponse: boolean = false, isFirstMessage: boolean = false) => {
-    if (useVoiceResponse && settings.voiceExperience.autoSpeakAI) {
-      streamingTTS.stop();
-    }
+  const streamResponse = async (messages: Message[], activeChatId: string, modelMessageId: string, isFirstMessage: boolean = false) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -105,11 +74,7 @@ export const MainChat: React.FC = () => {
     let fullResponse = "";
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token || "dummy_token";
-
-      const currentModel = aiModels.find(m => m.id === selectedModelId) || aiModels[0];
-      const modelToUse = currentModel ? currentModel.model_name : 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
+      const accessToken = "dummy_token";
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -120,9 +85,7 @@ export const MainChat: React.FC = () => {
         signal: abortController.signal,
         body: JSON.stringify({
           messages: messages,
-          model: modelToUse,
-          searchWeb: searchWeb,
-          openRouterApiKey: settings.aiBehavior.openRouterApiKey,
+          model: selectedMode,
         }),
       });
 
@@ -160,11 +123,12 @@ export const MainChat: React.FC = () => {
                   fullResponse += data.text;
                   updateModelMessage(activeChatId, modelMessageId, data.text, true);
                   
-                  if (useVoiceResponse && settings.voiceExperience.autoSpeakAI && settings.voiceExperience.streamingVoice) {
-                    streamingTTS.queueChunk(data.text);
-                  }
+
                 } else if (data.error) {
                   updateModelMessage(activeChatId, modelMessageId, "\n\n**Error:** " + data.error, true);
+                }
+                if (data.reasoning) {
+                  updateReasoningState(activeChatId, modelMessageId, data.reasoning);
                 }
               } catch (e) {
                 // Parse error
@@ -183,50 +147,30 @@ export const MainChat: React.FC = () => {
       setIsStreaming(false);
       abortControllerRef.current = null;
       
-      if (useVoiceResponse && settings.voiceExperience.autoSpeakAI) {
-        if (!settings.voiceExperience.streamingVoice) {
-          streamingTTS.queueChunk(fullResponse);
-        }
-        streamingTTS.flush();
-      }
+
 
       if (isFirstMessage) {
         const userMsg = messages.find(m => m.role === 'user')?.content || "";
-        generateTitle(activeChatId, userMsg, fullResponse).catch(console.error);
+        generateTitle(activeChatId, userMsg).catch(console.error);
       }
     }
   };
 
-  const handleSendMessage = async (content: string, images?: string[], searchWeb: boolean = false, fromVoice: boolean = false) => {
-    const isVoiceTurn = fromVoice || (voiceMode && settings.voiceExperience.keepVoiceMode);
-    if (fromVoice && settings.voiceExperience.keepVoiceMode) {
-      setVoiceMode(true);
-    } else if (!fromVoice) {
-      setVoiceMode(false);
-    }
-
+  const handleSendMessage = async (content: string, images?: string[]) => {
     const newUserMessage: Message = { 
       id: Date.now().toString(), 
       role: "user", 
       content, 
-      images,
-      source: fromVoice ? "voice" : "text",
-      autoSent: fromVoice
+      images
     };
-    const activeChatId = addMessage(newUserMessage, undefined, undefined, selectedModelId);
+    const activeChatId = addMessage(newUserMessage, undefined, undefined, selectedMode);
 
     const modelMessageId = (Date.now() + 1).toString();
     const newModelMessage: Message = { id: modelMessageId, role: "model", content: "" };
     addMessage(newModelMessage, activeChatId);
 
     const messagesToSend = [...currentMessages.filter(m => m.role !== 'system'), newUserMessage];
-    await streamResponse(messagesToSend, activeChatId, modelMessageId, searchWeb, isVoiceTurn, currentMessages.length === 0);
-  };
-
-  const handleSystemCommand = (message: string) => {
-    const modelMessageId = Date.now().toString();
-    const newModelMessage: Message = { id: modelMessageId, role: "model", content: message };
-    addMessage(newModelMessage, currentChatId || undefined);
+    await streamResponse(messagesToSend, activeChatId, modelMessageId, currentMessages.length === 0);
   };
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
@@ -246,90 +190,49 @@ export const MainChat: React.FC = () => {
     await streamResponse(messagesToSend, currentChatId, modelMessageId, false);
   };
 
-  const generateTitle = async (chatId: string, userMessage: string, assistantResponse: string) => {
+  const generateTitle = async (chatId: string, userMessage: string) => {
     try {
-      const currentChat = chats.find(c => c.id === chatId);
-      if (!currentChat || currentChat.isTitleGenerated || currentChat.isCustomTitle) return;
+      console.log("Generating title for message:", userMessage);
+      const cleanMsg = userMessage.trim();
+      if (cleanMsg.length <= 10) {
+        console.log("Message too short, skipping title generation.");
+        return;
+      }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token || "dummy_token";
-      const currentModel = aiModels.find(m => m.id === selectedModelId) || aiModels[0];
-      const modelToUse = currentModel ? currentModel.model_name : 'openrouter/free';
-
-      const prompt = `Generate a concise conversation title.
-
-Rules:
-- 3 to 8 words.
-- No quotation marks.
-- No punctuation at the end.
-- Use title case.
-- Summarize the main topic.
-- Return only the title.
-
-Conversation:
-User: ${userMessage}
-Assistant: ${assistantResponse}`;
-
-      const response = await fetch("/api/chat", {
+      console.log("Fetching /api/chat/title...");
+      const response = await fetch("/api/chat/title", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer dummy_token`,
         },
         body: JSON.stringify({
-          messages: [
-            { role: "user", content: prompt }
-          ],
-          model: modelToUse,
-          searchWeb: false,
-          openRouterApiKey: settings.aiBehavior.openRouterApiKey,
+          firstMessage: cleanMsg,
+          model: selectedMode,
         }),
       });
 
-      if (!response.body) throw new Error("No response body");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let generatedTitle = "";
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const dataStr = line.replace("data: ", "");
-              if (dataStr.trim() === "[DONE]") {
-                done = true;
-                break;
-              }
-              try {
-                const data = JSON.parse(dataStr);
-                if (data.text) {
-                  generatedTitle += data.text;
-                }
-              } catch (e) { }
-            }
-          }
-        }
+      console.log("Response status:", response.status);
+      if (!response.ok) {
+        const fallbackWords = cleanMsg.split(" ").slice(0, 5).join(" ");
+        if (fallbackWords) updateChatTitle(chatId, fallbackWords, true, false);
+        return;
       }
 
-      if (generatedTitle.trim()) {
-        const cleanTitle = generatedTitle.replace(/["']/g, '').trim().replace(/\.$/, '');
+      const data = await response.json();
+      console.log("Generated Title Data:", data);
+      const cleanTitle = data.title;
+
+      if (cleanTitle && cleanTitle !== "New Chat") {
         updateChatTitle(chatId, cleanTitle, true, false);
       } else {
-        throw new Error("Empty generated title");
+        const fallbackWords = cleanMsg.split(" ").slice(0, 5).join(" ");
+        if (fallbackWords) updateChatTitle(chatId, fallbackWords, true, false);
       }
-    } catch (e) {
-      console.error("Auto-rename failed", e);
-      // Fallback
-      let fallbackTitle = userMessage.trim();
-      if (fallbackTitle.length > 30) {
-        fallbackTitle = fallbackTitle.slice(0, 30) + '...';
-      }
-      updateChatTitle(chatId, fallbackTitle, true, false);
+    } catch (error) {
+      console.error("Failed to generate title:", error);
+      const fallbackWords = userMessage.trim().split(" ").slice(0, 5).join(" ");
+      if (fallbackWords) updateChatTitle(chatId, fallbackWords, true, false);
     }
   };
 
@@ -341,17 +244,14 @@ Assistant: ${assistantResponse}`;
   return (
     <>
       {outlineContent && <DocumentOutline content={outlineContent} />}
+
+
+
       <div 
-        className="absolute top-4 z-30 transition-all duration-300"
-        style={{ left: 'var(--model-picker-left, 1.5rem)' }}
+        id="chat-scroll-container"
+        className="flex-1 overflow-y-auto pt-4 flex flex-col relative w-full scrollbar-thin scrollbar-thumb-border-color hover:scrollbar-thumb-text-secondary"
+        style={{ paddingBottom: 'calc(var(--input-height, 120px) + 20px + env(safe-area-inset-bottom))' }}
       >
-        <ModelPicker 
-          models={aiModels} 
-          selectedModelId={selectedModelId} 
-          onSelectModel={handleSelectModel} 
-        />
-      </div>
-      <div className="flex-1 overflow-y-auto pt-4 pb-32 flex flex-col relative w-full scrollbar-thin scrollbar-thumb-border-color hover:scrollbar-thumb-text-secondary">
         {currentMessages.length === 0 ? (
           <WelcomeScreen />
         ) : (
@@ -365,6 +265,7 @@ Assistant: ${assistantResponse}`;
                 images={msg.images}
                 isGenerating={isStreaming && index === arr.length - 1 && msg.role === "model"}
                 isSearchingWeb={msg.isSearchingWeb}
+                reasoning={msg.reasoning}
                 onEdit={isStreaming ? undefined : handleEditMessage}
               />
             ))}
@@ -373,19 +274,14 @@ Assistant: ${assistantResponse}`;
         )}
       </div>
 
-      {/* Floating Stop TTS button removed */}
-
-      <ChatInput
-        onSendMessage={handleSendMessage}
-        onStopStreaming={stopStreaming}
-        isStreaming={isStreaming}
-        isCentered={currentMessages.length === 0}
-        models={aiModels}
-        selectedModelId={selectedModelId}
-        onSelectModel={handleSelectModel}
-        onSystemCommand={handleSystemCommand}
-        onCreateNewChat={createNewChat}
-      />
+      <div id="chat-input-container">
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          onStopStreaming={stopStreaming}
+          isStreaming={isStreaming}
+          isCentered={currentMessages.length === 0}
+        />
+      </div>
     </>
   );
 };

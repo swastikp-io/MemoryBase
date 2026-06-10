@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { 
-  Rocket, Key, Mic, Mail, Youtube, Lightbulb, 
+  Rocket, Key, Mail, Youtube, Lightbulb, 
   ShieldCheck, Terminal, Settings as SettingsIcon, 
   Palette, Play, Plus, Search, HelpCircle,
   MessageSquare
@@ -13,9 +13,6 @@ export const HelpCentreSettings: React.FC = () => {
   const navItems = [
     { id: 'getting-started', label: 'Getting Started', icon: Rocket },
     { id: 'api-setup', label: 'API Setup', icon: Key },
-    { id: 'voice', label: 'Voice Commands', icon: Mic },
-    { id: 'gmail', label: 'Gmail', icon: Mail },
-    { id: 'youtube', label: 'YouTube', icon: Youtube },
     { id: 'tips', label: 'Tips & Tricks', icon: Lightbulb },
   ];
 
@@ -28,7 +25,7 @@ export const HelpCentreSettings: React.FC = () => {
           Paralex Help Centre
         </h2>
         <p className="text-text-secondary text-[15px] max-w-2xl leading-relaxed">
-          Paralex is an AI-native workspace that combines powerful AI models, web search, voice commands, browser automation, research capabilities, and productivity tools into a single experience.
+          Paralex is an AI-native workspace that combines powerful AI models, web search, research capabilities, and productivity tools into a single experience.
         </p>
       </div>
 
@@ -90,105 +87,17 @@ export const HelpCentreSettings: React.FC = () => {
                    Paralex never stores or records your API keys. All keys remain securely encrypted on your device and are fully under your control.
                  </p>
                </CalloutBox>
-               
-               <Card>
-                 <h3 className="text-base font-medium text-text-primary mb-3">Shortcuts</h3>
-                 <div className="space-y-2 mt-4">
-                   <Shortcut label="Start Voice Command" keys={['Ctrl', 'Alt', 'Win']} />
-                   <Shortcut label="Cancel Voice Command" keys={['Esc']} />
-                 </div>
-               </Card>
-             </div>
+              </div>
            </div>
         </Section>
 
-        {/* Voice Commands */}
-        <Section id="voice" title="Voice Commands" icon={Mic}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <CommandCard 
-              command="toggle web search" 
-              description="Enables or disables web search capabilities."
-              icon={Search}
-            />
-            <CommandCard 
-              command="create a new chat" 
-              description="Starts a fresh conversation."
-              icon={MessageSquare}
-            />
-            <CommandCard 
-              command="hey can you please open settings" 
-              description="Opens the settings panel."
-              icon={SettingsIcon}
-            />
-            <CommandCard 
-              command="hey can you please change the accent color to [color]" 
-              description="Changes the UI accent color (Blue, Light Blue, Green, Soft Blue, Lime)."
-              icon={Palette}
-            />
-          </div>
-        </Section>
 
-        {/* Gmail Automation */}
-        <Section id="gmail" title="Gmail Automation" icon={Mail}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <CommandCard 
-              command="hey open gmail" 
-              description="Launches Gmail in a new browser tab."
-              icon={Mail}
-              color="text-red-500"
-              iconBg="bg-red-500/10"
-            />
-            <CommandCard 
-              command="hey open gmail and draft a new message" 
-              description="Opens Gmail directly into the compose window."
-              icon={Plus}
-              color="text-red-500"
-              iconBg="bg-red-500/10"
-            />
-            <CommandCard 
-              command="hey open gmail and draft a new message about [topic]" 
-              description="Opens Gmail and pre-fills the email body using your spoken text."
-              icon={Terminal}
-              color="text-red-500"
-              iconBg="bg-red-500/10"
-              className="sm:col-span-2"
-            />
-          </div>
-        </Section>
-
-        {/* YouTube Automation */}
-        <Section id="youtube" title="YouTube Automation" icon={Youtube}>
-          <Card className="border-l-[3px] border-l-red-500">
-            <p className="text-text-secondary text-[14px] mb-5 font-medium">
-              Paralex uses a dedicated browser agent to automatically find and play videos for you.
-            </p>
-            <div className="space-y-4">
-              <CommandCard 
-                command="play [video name]" 
-                description="E.g., 'play shape of you'"
-                icon={Play}
-                color="text-red-500"
-                iconBg="bg-red-500/10"
-              />
-              <CommandCard 
-                command="play [video name] on youtube" 
-                description="E.g., 'play shape of you on youtube'"
-                icon={Youtube}
-                color="text-red-500"
-                iconBg="bg-red-500/10"
-              />
-            </div>
-          </Card>
-        </Section>
 
         {/* Tips & Troubleshooting */}
         <Section id="tips" title="Tips for Best Results" icon={Lightbulb}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <ul className="space-y-4">
-                <ListItem text="Speak naturally and clearly." />
-                <ListItem text="Wait until Paralex begins listening before speaking." />
-                <ListItem text="Use specific video names when using YouTube commands." />
                 <ListItem text="Keep your OpenRouter API key secure." />
               </ul>
             </Card>

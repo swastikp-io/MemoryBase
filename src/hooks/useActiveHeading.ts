@@ -14,7 +14,8 @@ export const useActiveHeading = (headingIds: string[]) => {
         }
       },
       {
-        rootMargin: '-80px 0px -80% 0px', // Adjust margins to trigger when heading is near the top
+        root: document.getElementById('chat-scroll-container'),
+        rootMargin: '-20px 0px -80% 0px', // Adjust margins to trigger when heading is near the top of the container
         threshold: 0.1,
       }
     );

@@ -1,31 +1,31 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, ArrowUpRight, Command } from "lucide-react";
-import { AccessModal } from "../components/AccessModal";
-import { supabase } from "../lib/supabase";
+import { ArrowRight, ArrowUpRight, Command, Sun, Moon } from "lucide-react";
+import { useSettingsStore } from "../store/settings";
+import { useAuthStore } from "../store/auth";
+import { InviteModal } from "../components/InviteModal";
 
 export const LandingPage: React.FC = () => {
-  const [isAccessOpen, setIsAccessOpen] = useState(false);
   const navigate = useNavigate();
+  const { appearance, updateAppearance } = useSettingsStore();
+  const { hasAccess, grantAccess } = useAuthStore();
+  const themeMode = appearance?.themeMode || 'light';
+  
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
-  React.useEffect(() => {
-    const handleOAuthRedirect = async () => {
-      if (
-        window.location.hash.includes('access_token') ||
-        window.location.hash.includes('refresh_token') ||
-        window.location.search.includes('code=')
-      ) {
-        const { data } = await supabase.auth.getSession();
-        if (data?.session) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-          navigate('/chat');
-        }
-      }
-    };
+  const toggleTheme = () => {
+    updateAppearance({ themeMode: themeMode === 'light' ? 'dark' : 'light' });
+  };
 
-    handleOAuthRedirect();
-  }, [navigate]);
+  const handleTryParalex = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (hasAccess) {
+      navigate('/chat');
+    } else {
+      setIsInviteModalOpen(true);
+    }
+  };
 
   return (
     <motion.div
@@ -33,29 +33,25 @@ export const LandingPage: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -15 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-screen font-sans selection:bg-white selection:text-black bg-[#121110] text-white overflow-x-hidden"
+      className="min-h-screen font-sans selection:bg-[var(--textPrimary)] selection:text-[var(--background)] bg-[var(--background)] text-[var(--textPrimary)] overflow-x-hidden"
     >
-      <AccessModal
-        isOpen={isAccessOpen}
-        onClose={() => setIsAccessOpen(false)}
-      />
-
       {/* Header */}
-      <nav className="fixed w-full left-0 top-0 z-50 flex items-center justify-between px-6 py-5 bg-[#121110]">
+      <nav className="fixed w-full left-0 top-0 z-50 flex items-center justify-between px-6 py-5 bg-[var(--background)]">
         <div className="flex items-center gap-2">
-          <Command className="w-6 h-6 text-white" />
-          <span className="font-sans font-bold text-xl tracking-tight text-white uppercase">Paralex</span>
-        </div>
-
-        <div className="hidden lg:flex items-center gap-8 text-[15px] font-medium text-white">
-          <a href="#" className="hover:text-white/80 transition-colors">Product</a>
-          <a href="#" className="hover:text-white/80 transition-colors">Enterprise</a>
-          <a href="#" className="hover:text-white/80 transition-colors">Pricing</a>
-          <a href="#" className="hover:text-white/80 transition-colors">Resources</a>
+          <Command className="w-6 h-6 text-[var(--textPrimary)]" />
+          <span className="font-sans font-bold text-xl tracking-tight text-[var(--textPrimary)] uppercase">Paralex</span>
         </div>
 
         <div className="flex items-center gap-4 text-[15px] font-medium">
-          <a href="mailto:openfrm.labs@gmail.com" className="hidden md:flex border border-white/20 px-4 py-1.5 rounded-full hover:bg-white/5 transition-colors">
+          <button 
+            onClick={toggleTheme}
+            className="p-2 rounded-full border border-[var(--border)] hover:bg-[var(--surfaceSecondary)] transition-colors text-[var(--textPrimary)]"
+            aria-label={themeMode === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            title={themeMode === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+          >
+            {themeMode === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
+          <a href="mailto:openfrm.labs@gmail.com" className="hidden md:flex border border-[var(--border)] px-4 py-1.5 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors">
             Contact
           </a>
         </div>
@@ -64,21 +60,21 @@ export const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <main className="max-w-[1300px] mx-auto px-6 pt-20 md:pt-28 pb-32">
         <div className="max-w-3xl mb-14">
-          <h1 className="text-[2.5rem] md:text-[2.5rem] lg:text-[2.5rem] font-sans font-medium leading-[1.05] tracking-tight text-white mb-8 pt-32">
+          <h1 className="text-[2.5rem] md:text-[2.5rem] lg:text-[2.5rem] font-sans font-medium leading-[1.05] tracking-tight text-[var(--textPrimary)] mb-8 pt-32">
             Built to make you <br className="hidden md:block" />
             extraordinarily productive
           </h1>
 
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <button
-              onClick={() => setIsAccessOpen(true)}
-              className="w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium bg-white text-black rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+              onClick={handleTryParalex}
+              className={`w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium rounded-full flex items-center justify-center gap-2 transition-colors duration-200 ease-in-out ${themeMode === 'light' ? 'bg-[#0D0D0D] text-[#FFFFFF] hover:bg-[#262626]' : 'bg-[var(--textPrimary)] text-[var(--background)] hover:bg-[var(--textSecondary)] text-black'}`}
             >
               Try Paralex <ArrowUpRight className="w-5 h-5 ml-1" />
             </button>
             <button
               onClick={() => navigate('/docs')}
-              className="w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium bg-[#2a2928] text-white rounded-full hover:bg-[#353433] transition-colors flex items-center justify-center gap-2 border border-transparent"
+              className="w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium bg-[var(--surfaceSecondary)] text-[var(--textPrimary)] rounded-full hover:bg-[var(--surface)] transition-colors flex items-center justify-center gap-2 border border-transparent"
             >
               Read Docs <ArrowRight className="w-5 h-5 ml-1" />
             </button>
@@ -100,42 +96,39 @@ export const LandingPage: React.FC = () => {
         </motion.div>
       </main>
 
-      {/* Voice Command Section Image */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-[1300px] mx-auto px-6 mb-24 flex justify-center"
-      >
-        <img
-          src="/voicecmdsection.png"
-          alt="Voice Commands Interface"
-          className="w-full rounded-xl shadow-2xl border border-white/10 object-cover block"
-        />
-      </motion.div>
+
 
       {/* Footer */}
-      <footer className="bg-[#121110] text-white py-16 mt-10 border-t border-white/[0.05]">
+      <footer className="bg-[var(--background)] text-[var(--textPrimary)] py-16 mt-10 border-t border-[var(--border)]">
         <div className="max-w-[1300px] mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1 mb-16">
           <div>
             <h4 className="font-sans font-bold text-xl mb-6">Openfrm Labs</h4>
-            <p className="text-white/60 text-sm leading-relaxed max-w-xs">
+            <p className="text-[var(--textSecondary)] text-sm leading-relaxed max-w-xs">
               Built for humans. Powered by intelligent AI.
             </p>
           </div>
         </div>
-        <div className="max-w-[1300px] mx-auto px-6 pt-8 border-t border-white/[0.05] flex flex-col md:flex-row justify-between items-center text-sm font-medium text-white/60">
+        <div className="max-w-[1300px] mx-auto px-6 pt-8 border-t border-[var(--border)] flex flex-col md:flex-row justify-between items-center text-sm font-medium text-[var(--textSecondary)]">
           <div className="mb-4 md:mb-0">
             © 2026 Openfrm Labs. All rights reserved.
           </div>
           <div className="flex gap-6">
-            <a href="https://x.com/openfrmlabs" className="hover:text-white transition-colors">Twitter</a>
-            <a href="https://www.linkedin.com/company/openfrm-labs" className="hover:text-white transition-colors">LinkedIn</a>
-            <a href="mailto:openfrm.labs@gmail.com" className="hover:text-white transition-colors">Contact</a>
+            <a href="https://x.com/openfrmlabs" className="hover:text-[var(--textPrimary)] transition-colors">Twitter</a>
+            <a href="https://www.linkedin.com/company/openfrm-labs" className="hover:text-[var(--textPrimary)] transition-colors">LinkedIn</a>
+            <a href="mailto:openfrm.labs@gmail.com" className="hover:text-[var(--textPrimary)] transition-colors">Contact</a>
           </div>
         </div>
       </footer>
+
+      <InviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onSuccess={(user) => {
+          grantAccess(user);
+          setIsInviteModalOpen(false);
+          navigate('/chat');
+        }}
+      />
     </motion.div>
   );
 };

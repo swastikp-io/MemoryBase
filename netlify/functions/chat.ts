@@ -1,6 +1,5 @@
 import { MemoryExtractor } from "../../server/memoryExtractor.ts";
 import { ReasoningController } from "../../server/orchestrator/reasoningController.ts";
-import { getBearerToken, getUserFromToken } from "../../server/supabase.ts";
 import OpenAI from "openai";
 
 export default async (req: Request) => {
@@ -8,16 +7,8 @@ export default async (req: Request) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const authHeader = req.headers.get("authorization");
-  const accessToken = getBearerToken(authHeader || undefined);
-  const user = await getUserFromToken(accessToken);
-
-  if (!accessToken || !user) {
-    return new Response(JSON.stringify({ error: "Authentication required" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
+  const accessToken = "dummy_token";
+  const user = { id: "anonymous-user-123", email: "guest" };
 
   let body;
   try {
@@ -26,7 +17,7 @@ export default async (req: Request) => {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
   }
 
-  const { messages, model, searchWeb, memorySettings, openRouterApiKey } = body;
+  const { messages, model, searchWeb, memorySettings } = body;
   const userId = user.id;
   const memoryEnabled = memorySettings?.memoryEnabled !== false;
   const conversationContinuity = memorySettings?.conversationContinuity !== false;
@@ -41,7 +32,7 @@ export default async (req: Request) => {
   const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   const currentOpenAI = new OpenAI({
     baseURL: "https://openrouter.ai/api/v1",
-    apiKey: openRouterApiKey || process.env.OPENROUTER_API_KEY || "dummy_key",
+    apiKey: process.env.OPENROUTER_API_KEY || "dummy_key",
     defaultHeaders: {
       "HTTP-Referer": appUrl,
       "X-Title": "Paralex",

@@ -1,15 +1,10 @@
 import express from "express";
 import path from "path";
+import { createServer as createViteServer } from "vite";
 import OpenAI, { toFile } from "openai";
 import dotenv from "dotenv";
 import { ReasoningController } from "./server/orchestrator/reasoningController.ts";
 import { PersonalizationService } from "./server/personalization/personalizationService.ts";
-import { getBearerToken, getUserFromToken } from "./server/supabase.ts";
-import { YouTubeAgent } from "./src/services/browser/YouTubeAgent.ts";
-import { LinkedInAgent } from "./src/services/browser/LinkedInAgent.ts";
-import { BrowserIntent } from "./src/services/browser/BrowserActionTypes.ts";
-import { SystemAudioAgent } from "./src/services/system/SystemAudioAgent.ts";
-import { SystemIntent } from "./src/services/system/SystemActionTypes.ts";
 
 dotenv.config();
 
@@ -26,20 +21,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 export function setupRoutes() {
 
   async function authenticateRequest(req: express.Request, res: express.Response) {
-    const accessToken = getBearerToken(req.headers.authorization);
-
-    if (accessToken === "dummy_token") {
-      return { accessToken, user: { id: "anonymous-user-123" } };
-    }
-
-    const user = await getUserFromToken(accessToken);
-
-    if (!accessToken || !user) {
-      res.status(401).json({ error: "Authentication required" });
-      return null;
-    }
-
-    return { accessToken, user };
+    return { accessToken: "dummy_token", user: { id: "anonymous-user-123" } };
   }
 
   // API route for chat message streaming
@@ -47,7 +29,7 @@ export function setupRoutes() {
     const auth = await authenticateRequest(req, res);
     if (!auth) return;
 
-    const { messages, model, searchWeb, openRouterApiKey } = req.body;
+    const { messages, model } = req.body;
     const userId = auth.user.id;
 
     if (!messages || !Array.isArray(messages)) {
@@ -59,12 +41,9 @@ export function setupRoutes() {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      const currentOpenAI = openRouterApiKey ? new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: openRouterApiKey,
-      }) : openai;
+      const currentOpenAI = openai;
 
-      await ReasoningController.execute(currentOpenAI, userId, auth.accessToken, messages, model, searchWeb, res);
+      await ReasoningController.execute(currentOpenAI, userId, auth.accessToken, messages, model, res);
       res.write("data: [DONE]\n\n");
       res.end();
 
@@ -86,20 +65,69 @@ export function setupRoutes() {
     }
   });
 
+  app.post("/api/chat/title", async (req, res) => {
+    const auth = await authenticateRequest(req, res);
+    if (!auth) return;
+
+    const { firstMessage, model } = req.body;
+    if (!firstMessage) {
+      return res.status(400).json({ error: "firstMessage is required" });
+    }
+
+    try {
+      const currentOpenAI = openai;
+      let actualModel = "openai/gpt-oss-120b:free";
+      if (model === "research" || model === "google/gemma-4-31b-it:free") {
+        actualModel = "google/gemma-4-31b-it:free";
+      } else if (model === "coding" || model === "moonshotai/kimi-k2.6:free") {
+        actualModel = "moonshotai/kimi-k2.6:free";
+      }
+
+      const completion = await currentOpenAI.chat.completions.create({
+        model: actualModel,
+        temperature: 0.3,
+        max_tokens: 30,
+        messages: [
+          {
+            role: "system",
+            content: "You generate concise conversation titles.\nRules:\n- Maximum 6 words\n- No quotation marks\n- No punctuation unless necessary\n- Title Case\n- Descriptive\n- Professional\n- No filler words\nReturn only the title."
+          },
+          {
+            role: "user",
+            content: `Input:\n${firstMessage}`
+          }
+        ]
+      });
+
+      let generatedTitle = completion.choices[0]?.message?.content?.trim() || "";
+      generatedTitle = generatedTitle.replace(/["':\n]/g, ""); // Remove quotes and newlines
+      if (generatedTitle.length > 60) {
+        generatedTitle = generatedTitle.substring(0, 60).trim();
+      }
+
+      res.json({ title: generatedTitle });
+    } catch (error: any) {
+      console.error("Title generation error gracefully caught:", error.message);
+      
+      // Backend fallback logic to ensure frontend never receives a 500
+      let fallbackTitle = firstMessage.trim().split(/\s+/).slice(0, 5).join(" ");
+      if (!fallbackTitle) fallbackTitle = "New Chat";
+      
+      res.json({ title: fallbackTitle });
+    }
+  });
+
   app.post("/api/canvas/edit", async (req, res) => {
     const auth = await authenticateRequest(req, res);
     if (!auth) return;
 
-    const { selectedText, instruction, model, openRouterApiKey } = req.body;
+    const { selectedText, instruction, model } = req.body;
     if (!selectedText || !instruction) {
       return res.status(400).json({ error: "selectedText and instruction are required" });
     }
 
     try {
-      const currentOpenAI = openRouterApiKey ? new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: openRouterApiKey,
-      }) : openai;
+      const currentOpenAI = openai;
 
       const completion = await currentOpenAI.chat.completions.create({
         model: model || "meta-llama/Meta-Llama-3-8B-Instruct",
@@ -129,122 +157,6 @@ export function setupRoutes() {
     }
   });
 
-  app.post("/api/transcribe", async (req, res) => {
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
-
-    const { audio } = req.body;
-    if (!audio) {
-      return res.status(400).json({ error: "Audio data is required" });
-    }
-
-    try {
-      const groqKey = process.env.GROQ_API_KEY;
-      if (!groqKey) {
-        return res.status(500).json({ error: "Groq API key not configured on server" });
-      }
-
-      const groq = new OpenAI({
-        apiKey: groqKey,
-        baseURL: "https://api.groq.com/openai/v1"
-      });
-
-      const buffer = Buffer.from(audio, 'base64');
-      const file = await toFile(buffer, 'audio.webm', { type: 'audio/webm' });
-
-      const transcription = await groq.audio.transcriptions.create({
-        file,
-        model: 'whisper-large-v3-turbo',
-      });
-
-      res.json({ text: transcription.text });
-    } catch (error: any) {
-      console.error("Groq Transcription Error:", error);
-      res.status(500).json({ error: error.message || "Failed to transcribe audio" });
-    }
-  });
-
-  // Health check endpoint for TTS
-  app.get("/api/tts-health", async (req, res) => {
-    try {
-      const groqKey = process.env.GROQ_API_KEY;
-      if (!groqKey) {
-        return res.status(500).json({ status: "error", message: "GROQ_API_KEY is not configured" });
-      }
-      res.json({ status: "ok", message: "TTS service is healthy and API key is present" });
-    } catch (e: any) {
-      res.status(500).json({ status: "error", message: e.message });
-    }
-  });
-
-  app.post("/api/tts", async (req, res) => {
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
-
-    const { input, text, voice = "alloy", model = "canopylabs/orpheus-v1-english", response_format = "mp3" } = req.body;
-    const finalInput = input || text;
-    if (!finalInput) {
-      return res.status(400).json({ error: "Input text is required" });
-    }
-
-    try {
-      const groqKey = process.env.GROQ_API_KEY;
-      if (!groqKey) {
-        return res.status(500).json({ error: "Groq API key not configured on server" });
-      }
-
-      console.log(`[TTS] Requesting audio generation for voice: ${voice}, length: ${finalInput.length}`);
-      const startTime = Date.now();
-
-      const response = await fetch("https://api.groq.com/openai/v1/audio/speech", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${groqKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model,
-          input: finalInput,
-          voice,
-          response_format
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[TTS] Groq API Error: ${response.status} ${errorText}`);
-        
-        let errorCode = "unknown_error";
-        let errorDetail = errorText;
-        try {
-          const parsed = JSON.parse(errorText);
-          if (parsed.error && parsed.error.code) {
-            errorCode = parsed.error.code;
-          } else if (parsed.error && parsed.error.type) {
-            errorCode = parsed.error.type;
-          }
-          if (parsed.error && parsed.error.message) {
-            errorDetail = parsed.error.message;
-          }
-        } catch(e) {}
-
-        return res.status(response.status).json({ 
-          error: "Groq API Error", 
-          code: errorCode, 
-          raw: errorDetail 
-        });
-      }
-
-      console.log(`[TTS] Generation took ${Date.now() - startTime}ms`);
-      
-      res.setHeader('Content-Type', 'audio/mpeg');
-      const arrayBuffer = await response.arrayBuffer();
-      res.send(Buffer.from(arrayBuffer));
-    } catch (error: any) {
-      console.error("Groq TTS Error:", error);
-      res.status(500).json({ error: error.message || "Failed to generate speech" });
-    }
-  });
 
   // Settings API Routes for Personalization
   app.get("/api/settings/personalization/:userId", (req, res) => {
@@ -283,69 +195,7 @@ export function setupRoutes() {
     res.json(mockBackendSettings);
   });
 
-  // Browser Automation Intent Router
-  app.post("/api/browser/intent", async (req, res) => {
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
 
-    const intent: BrowserIntent = req.body.intent;
-    if (!intent || !intent.action) {
-      return res.status(400).json({ error: "Invalid intent" });
-    }
-
-    try {
-      if (intent.action === "play_youtube") {
-        const agent = new YouTubeAgent();
-        const result = await agent.playVideo(intent.query);
-        return res.json(result);
-      }
-      if (intent.action === "search_linkedin") {
-        const agent = new LinkedInAgent();
-        const result = await agent.search(intent.query);
-        return res.json(result);
-      }
-      return res.status(400).json({ error: "Unknown intent action" });
-    } catch (error: any) {
-      return res.status(500).json({ error: error.message });
-    }
-  });
-
-  // System OS Intent Router
-  app.post("/api/system/intent", async (req, res) => {
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
-
-    const intent: SystemIntent = req.body.intent;
-    if (!intent || !intent.action) {
-      return res.status(400).json({ error: "Invalid intent" });
-    }
-
-    try {
-      if (intent.action === "system_volume_decrease") {
-        const agent = new SystemAudioAgent();
-        const result = await agent.adjustVolume({ operation: "decrease", percentage: intent.percentage });
-        return res.json(result);
-      }
-      if (intent.action === "system_volume_increase") {
-        const agent = new SystemAudioAgent();
-        const result = await agent.adjustVolume({ operation: "increase", percentage: intent.percentage });
-        return res.json(result);
-      }
-      if (intent.action === "system_volume_get") {
-        const agent = new SystemAudioAgent();
-        const result = await agent.getVolume();
-        return res.json(result);
-      }
-      if (intent.action === "system_volume_set") {
-        const agent = new SystemAudioAgent();
-        const result = await agent.setVolume(intent.volume);
-        return res.json(result);
-      }
-      return res.status(400).json({ error: "Unknown intent action" });
-    } catch (error: any) {
-      return res.status(500).json({ error: error.message });
-    }
-  });
 
 }
 
@@ -355,7 +205,6 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

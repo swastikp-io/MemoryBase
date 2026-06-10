@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings as SettingsIcon, X, User, Palette, Brain, Lock, Database, Sliders, HelpCircle, Mic } from 'lucide-react';
+import { Settings as SettingsIcon, X, User, Palette, Brain, Lock, Database, Sliders, HelpCircle } from 'lucide-react';
 import { useSettingsStore, SettingsState } from '../store/settings';
-import { supabase } from '../lib/supabase';
 import { GeneralSettings } from '../settings/GeneralSettings';
 import { HelpCentreSettings } from '../settings/HelpCentreSettings';
+import { AISettings } from '../settings/AISettings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,10 +14,10 @@ interface SettingsModalProps {
 const TABS = [
   { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'ai', label: 'AI Models', icon: Brain },
   { id: 'personalization', label: 'Personalization', icon: Sliders },
-  { id: 'aiBehavior', label: 'AI Model & API Key', icon: Brain },
+
   { id: 'privacy', label: 'Privacy', icon: Lock },
-  { id: 'voiceExperience', label: 'Voice Experience', icon: Mic },
   { id: 'help', label: 'Help Centre', icon: HelpCircle },
 ];
 
@@ -64,7 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <SettingsIcon className="w-5 h-5 text-text-secondary" />
               <h2 className="font-semibold text-text-primary">Settings</h2>
             </div>
-            <button onClick={onClose} className="p-2 -mr-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+            <button onClick={onClose} className="p-2 -mr-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors">
               <X className="w-5 h-5 text-text-secondary" />
             </button>
           </div>
@@ -82,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-3 px-4 sm:px-3 py-2.5 sm:py-2.5 rounded-lg text-sm sm:text-[15px] font-medium transition-all relative ${isActive ? 'text-text-primary bg-black/5 dark:bg-white/10' : 'text-text-secondary hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-primary'
+                    className={`flex items-center gap-3 px-4 sm:px-3 py-2.5 sm:py-2.5 rounded-lg text-sm sm:text-[15px] font-medium transition-all relative ${isActive ? 'text-text-primary bg-[var(--surfaceSecondary)]' : 'text-text-secondary hover:bg-[var(--surfaceSecondary)] hover:text-text-primary'
                       }`}
                   >
                     <Icon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
@@ -96,7 +96,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           {/* Main Content Area */}
           <div className="flex-1 relative flex flex-col min-w-0 bg-bg-primary">
             <div className="hidden sm:flex absolute top-4 right-4 z-20">
-              <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors">
                 <X className="w-5 h-5 text-text-secondary" />
               </button>
             </div>
@@ -112,15 +112,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 {activeTab === 'personalization' && (
                   <PersonalizationSettings settings={settings} />
                 )}
-                {activeTab === 'aiBehavior' && (
-                  <AiBehaviorSettings settings={settings} />
+
+                {activeTab === 'ai' && (
+                  <AISettings settings={settings} />
                 )}
+
                 {activeTab === 'privacy' && (
                   <PrivacySettings settings={settings} />
                 )}
-                {activeTab === 'voiceExperience' && (
-                  <VoiceExperienceSettings settings={settings} />
-                )}
+
                 {activeTab === 'help' && (
                   <HelpCentreSettings />
                 )}
@@ -159,30 +159,7 @@ const ProfileSettings = ({ settings }: { settings: SettingsState }) => (
           placeholder="e.g. John Doe"
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1.5">Email Address</label>
-        <input
-          type="email"
-          value={settings.profile.email || ''}
-          readOnly
-          className="w-full bg-bg-input/50 border border-border-color rounded-xl px-4 py-2.5 text-text-secondary focus:outline-none transition-all font-medium cursor-not-allowed opacity-70"
-          placeholder="Not logged in"
-        />
-        <p className="text-xs text-text-secondary mt-1.5">Your email is managed securely via login.</p>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1.5">Username</label>
-        <div className="flex">
-          <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-border-color bg-black/5 dark:bg-white/5 text-text-secondary font-medium text-sm">@</span>
-          <input
-            type="text"
-            value={settings.profile.username}
-            onChange={(e) => settings.updateProfile({ username: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })}
-            className="flex-1 bg-bg-input border border-border-color rounded-r-xl px-4 py-2.5 text-text-primary focus:outline-none focus:border-text-secondary transition-all font-medium placeholder:text-text-secondary"
-            placeholder="username"
-          />
-        </div>
-      </div>
+
       <div>
         <label className="block text-sm font-medium text-text-secondary mb-1.5">Bio</label>
         <textarea
@@ -229,40 +206,6 @@ const PersonalizationSettings = ({ settings }: { settings: SettingsState }) => (
   </motion.div>
 );
 
-const AiBehaviorSettings = ({ settings }: { settings: SettingsState }) => (
-  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-    <SectionTitle title="AI & API Settings" description="Configure your AI model and API keys." />
-
-    <div className="space-y-6">
-
-
-      <div>
-        <div className="flex justify-between items-center mb-1.5">
-          <label className="block text-sm font-medium text-text-primary">OpenRouter API Key</label>
-          {settings.aiBehavior.keySyncStatus === 'saving' && (
-            <span className="text-xs text-text-secondary flex items-center gap-1">
-              <div className="w-3 h-3 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" /> Saving...
-            </span>
-          )}
-          {settings.aiBehavior.keySyncStatus === 'saved' && (
-            <span className="text-xs text-green-500 font-medium">✓ Saved Securely</span>
-          )}
-          {settings.aiBehavior.keySyncStatus === 'error' && (
-            <span className="text-xs text-red-500 font-medium">Failed to save</span>
-          )}
-        </div>
-        <p className="text-xs text-text-secondary mb-2 leading-relaxed">Provide your own OpenRouter API key to use AI models. It will be securely synced to your account.</p>
-        <input
-          type="password"
-          value={settings.aiBehavior.openRouterApiKey || ''}
-          onChange={(e) => settings.updateAiBehavior({ openRouterApiKey: e.target.value })}
-          className="w-full bg-bg-input border border-border-color rounded-xl px-4 py-2.5 text-text-primary focus:outline-none focus:border-text-secondary transition-all font-medium placeholder:text-text-secondary"
-          placeholder="sk-or-v1-..."
-        />
-      </div>
-    </div>
-  </motion.div>
-);
 
 const PrivacySettings = ({ settings }: { settings: SettingsState }) => {
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -272,15 +215,7 @@ const PrivacySettings = ({ settings }: { settings: SettingsState }) => {
 
     setIsDeleting(true);
     try {
-      const { error } = await supabase.rpc('delete_user');
-      if (error) {
-        console.error('Error deleting account:', error);
-        alert('Failed to delete account. Make sure the delete_user RPC function exists in Supabase.');
-        setIsDeleting(false);
-        return;
-      }
-
-      await supabase.auth.signOut();
+      localStorage.clear();
       window.location.href = '/';
     } catch (err) {
       console.error(err);
@@ -310,13 +245,13 @@ const PrivacySettings = ({ settings }: { settings: SettingsState }) => {
       <FormDivider />
 
       <div className="space-y-3">
-        <button className="w-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-text-primary font-medium py-3 px-4 rounded-xl transition-colors text-left text-sm border border-transparent">
+        <button className="w-full bg-[var(--surfaceSecondary)] hover:opacity-80 text-text-primary font-medium py-3 px-4 rounded-xl transition-colors text-left text-sm border border-transparent">
           Export Account Data (.zip)
         </button>
         <button
           onClick={handleDeleteAccount}
           disabled={isDeleting}
-          className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-medium py-3 px-4 rounded-xl transition-colors text-left text-sm border border-red-200 dark:border-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 font-medium py-3 px-4 rounded-xl transition-colors text-left text-sm border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isDeleting ? "Deleting Account..." : "Delete Account"}
         </button>
@@ -325,38 +260,6 @@ const PrivacySettings = ({ settings }: { settings: SettingsState }) => {
   );
 };
 
-const VoiceExperienceSettings = ({ settings }: { settings: SettingsState }) => (
-  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-    <SectionTitle title="Voice Experience" description="Configure hands-free interactions and voice behavior." />
-
-    <div className="space-y-4">
-      <ToggleRow
-        label="Auto-send speech messages"
-        description="Automatically submit your message after you stop speaking."
-        checked={settings.voiceExperience.autoSendSpeech}
-        onChange={(checked) => settings.updateVoiceExperience({ autoSendSpeech: checked })}
-      />
-      <ToggleRow
-        label="Auto-speak AI responses"
-        description="Automatically read Paralex's responses aloud if you used voice input."
-        checked={settings.voiceExperience.autoSpeakAI}
-        onChange={(checked) => settings.updateVoiceExperience({ autoSpeakAI: checked })}
-      />
-      <ToggleRow
-        label="Streaming voice responses"
-        description="Start speaking responses while they are still generating."
-        checked={settings.voiceExperience.streamingVoice}
-        onChange={(checked) => settings.updateVoiceExperience({ streamingVoice: checked })}
-      />
-      <ToggleRow
-        label="Keep voice mode active"
-        description="Maintain conversation in voice mode until you type or say 'Stop speaking'."
-        checked={settings.voiceExperience.keepVoiceMode}
-        onChange={(checked) => settings.updateVoiceExperience({ keepVoiceMode: checked })}
-      />
-    </div>
-  </motion.div>
-);
 
 /* --- Shared Components --- */
 
@@ -370,10 +273,10 @@ const ToggleRow = ({ label, description, checked, disabled = false, onChange }: 
       type="button"
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-[24px] w-[44px] flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:border-text-secondary disabled:cursor-not-allowed ${checked ? 'bg-[var(--accent-primary)]' : 'bg-black/20 dark:bg-white/20'
+      className={`relative inline-flex h-[24px] w-[44px] flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:border-text-secondary disabled:cursor-not-allowed ${checked ? 'bg-[var(--accent)]' : 'bg-[var(--surfaceSecondary)]'
         }`}
     >
-      <span className={`pointer-events-none inline-block h-[18px] w-[18px] transform rounded-full bg-white dark:bg-black shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0.5'
+      <span className={`pointer-events-none inline-block h-[18px] w-[18px] transform rounded-full bg-[var(--textPrimary)] shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0.5'
         }`} />
     </button>
   </div>

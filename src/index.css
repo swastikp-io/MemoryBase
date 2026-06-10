@@ -16,6 +16,20 @@
   --color-text-secondary: var(--text-secondary);
   --color-border-color: var(--border-color);
 
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surfaceSecondary);
+  --color-border: var(--border);
+  --color-textPrimary: var(--textPrimary);
+  --color-textSecondary: var(--textSecondary);
+  --color-textTertiary: var(--textTertiary);
+  --color-accent: var(--accent);
+  --color-accentHover: var(--accentHover);
+  --color-accentMuted: var(--accentMuted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+
   @keyframes gradient-x {
 
     0%,
@@ -46,11 +60,17 @@
 @layer base {
   :root {
     --bg-primary: #0a0a0a;
-    --bg-sidebar: #171717;
+    --bg-sidebar: #0a0a0a;
     --bg-input: #2F2F2F;
     --text-primary: #ECECEC;
     --text-secondary: #A0A0A0;
     --border-color: #303030;
+  }
+
+  *, ::before, ::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 200ms;
   }
 
   body {
@@ -100,7 +120,7 @@ textarea {
 
 .markdown-body strong {
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--text-primary);
 }
 
 .markdown-body em {

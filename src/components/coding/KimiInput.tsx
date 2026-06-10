@@ -1,34 +1,36 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, ArrowUp, X, Square, Image, ChevronDown, Check, Search, Mic } from "lucide-react";
+import { Plus, ArrowUp, X, Square, Image, Globe, ChevronDown, Check, Search } from "lucide-react";
 import { useSettingsStore } from "../store/settings";
 import { motion, AnimatePresence } from "motion/react";
 
 interface ChatInputProps {
-  onSendMessage: (content: string, images?: string[]) => void;
+  onSendMessage: (content: string, images?: string[], searchEnabled?: boolean) => void;
   onStopStreaming: () => void;
   isStreaming: boolean;
   isCentered?: boolean;
+  selectedModel?: string;
+  onModelSelect?: (model: string) => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
   onStopStreaming,
   isStreaming,
-  isCentered = false
+  isCentered = false,
+  selectedModel = 'Deep research',
+  onModelSelect
 }) => {
   const settings = useSettingsStore();
   const [input, setInput] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('Deep research');
-  const [isListening, setIsListening] = useState(false);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const modelMenuRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
-  const baseInputRef = useRef("");
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
@@ -52,58 +54,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [input]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        
-        recognition.onresult = (event: any) => {
-          let currentTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            currentTranscript += event.results[i][0].transcript;
-          }
-          setInput((baseInputRef.current + " " + currentTranscript).trim());
-        };
 
-        recognition.onend = () => {
-          setIsListening(false);
-        };
-        
-        recognitionRef.current = recognition;
-      }
-    }
-  }, []);
-
-  const toggleListening = () => {
-    if (!recognitionRef.current) return;
-    
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      baseInputRef.current = input;
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-      } catch (e) {
-        console.error("Speech recognition error:", e);
-      }
-    }
-  };
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
     if ((input.trim() || images.length > 0) && !isStreaming) {
-      onSendMessage(input.trim(), images.length > 0 ? images : undefined);
+      onSendMessage(input.trim(), images.length > 0 ? images : undefined, webSearchEnabled);
       setInput("");
       setImages([]);
+      setWebSearchEnabled(false);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -194,6 +153,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     <Image className="w-4 h-4 text-text-secondary group-hover/btn:text-text-primary transition-colors" />
                     Upload Images
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWebSearchEnabled(!webSearchEnabled);
+                    }}
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-[var(--surfaceSecondary)] transition-colors text-sm text-text-primary text-left w-full group/btn"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Globe className={`w-4 h-4 transition-colors ${webSearchEnabled ? 'text-[var(--accent)]' : 'text-text-secondary group-hover/btn:text-text-primary'}`} />
+                      Web Search
+                    </div>
+                    <div className={`w-8 h-4 rounded-full transition-colors relative ${webSearchEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--surfaceSecondary)]'}`}>
+                      <div className={`absolute top-0.5 bottom-0.5 w-3 bg-text-primary rounded-full transition-all ${webSearchEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+                    </div>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -221,17 +195,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           <div className="flex-shrink-0 flex items-center gap-2 pr-1">
-            {/* Mic Button */}
-            <button
-              type="button"
-              onClick={toggleListening}
-              className={`p-1.5 rounded-full transition-colors ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-[var(--surfaceSecondary)] text-text-secondary hover:text-text-primary'}`}
-              title="Voice input"
-            >
-              <Mic className="w-[20px] h-[20px]" strokeWidth={1.5} />
-            </button>
-
-
             {/* Model Selector Dropdown */}
             <div className="relative" ref={modelMenuRef}>
               <button
@@ -257,7 +220,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                         key={model}
                         type="button"
                         onClick={() => {
-                          setSelectedModel(model);
+                          if (onModelSelect) onModelSelect(model);
                           setShowModelMenu(false);
                         }}
                         className="flex items-center justify-between px-4 py-2.5 hover:bg-[var(--surfaceSecondary)] transition-colors text-[13px] text-text-primary text-left w-full group/btn"

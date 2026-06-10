@@ -1,26 +1,39 @@
 import { PersonalizationService } from '../personalization/personalizationService.ts';
+
+interface MessageInput {
+  role: string;
+  content: string;
+  images?: string[];
+}
+
+interface ContentPart {
+  type: string;
+  text?: string;
+  image_url?: { url: string };
+}
+
+interface FormattedMessage {
+  role: string;
+  content: string | ContentPart[];
+}
+
 export async function injectContext(
   userId: string,
   accessToken: string,
-  messages: any[],
-  searchWeb: boolean
-): Promise<any[]> {
-  const memories: any[] = [];
+  messages: MessageInput[]
+): Promise<FormattedMessage[]> {
+  const memories: Array<{ text: string }> = [];
 
   // Generate the dynamic system prompt with injected personalization
-  let systemInstruction = PersonalizationService.generatePersonalizedPrompt(userId, messages, memories);
-
-  if (searchWeb) {
-    systemInstruction += "\n\nWhen web search is enabled, search the web for references and answers, and cite relevant sources when possible.";
-  }
+  const systemInstruction = PersonalizationService.generatePersonalizedPrompt(userId, messages, memories);
 
   // Find if user sent a pre-baked system instruction (we will override or merge it)
   // Currently, the promptCompiler uses SUPER_PROMPT directly, so we just replace the system msg entirely.
 
   return [
     { role: "system", content: systemInstruction },
-    ...messages.filter((m: any) => m.role !== "system").map((msg: any) => {
-      const contentItems: any[] = [];
+    ...messages.filter((m) => m.role !== "system").map((msg) => {
+      const contentItems: ContentPart[] = [];
       if (msg.content) contentItems.push({ type: "text", text: msg.content });
       if (msg.images && msg.images.length > 0) {
         msg.images.forEach((imgBase64: string) => {

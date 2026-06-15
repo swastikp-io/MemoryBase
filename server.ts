@@ -267,7 +267,7 @@ async function startServer() {
 }
 
 // Only run the server if this file is executed directly (not imported), or if it's explicitly started
-const isLambda = !!process.env.LAMBDA_TASK_ROOT || !!process.env.NETLIFY;
+const isLambda = !!process.env.LAMBDA_TASK_ROOT;
 if (!isLambda) {
   startServer();
 }

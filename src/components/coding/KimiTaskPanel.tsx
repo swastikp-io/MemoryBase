@@ -1,5 +1,5 @@
 import React from 'react';
-import { Message } from '../context/ChatContext';
+import { Message } from "../../store/chatStore";
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -38,7 +38,7 @@ export const CodingWorkspace: React.FC<CodingWorkspaceProps> = ({ messages, isSt
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-text-secondary h-full">
         <Code2 className="w-16 h-16 mb-6 opacity-20" />
-        <h2 className="text-2xl font-mono text-text-primary mb-2">Paralex Coding Agent</h2>
+        <h2 className="text-2xl font-mono text-text-primary mb-2">MemoryBase Coding Agent</h2>
         <p className="font-mono text-sm max-w-md text-center">Ready to scaffold, architect, and implement production-ready software.</p>
       </div>
     );

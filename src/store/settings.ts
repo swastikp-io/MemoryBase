@@ -97,7 +97,7 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({ appearance: { ...state.appearance, ...data } })),
     }),
     {
-      name: 'paralex-settings',
+      name: 'memorybase-settings',
     }
   )
 );

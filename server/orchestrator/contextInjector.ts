@@ -1,4 +1,5 @@
 import { PersonalizationService } from '../personalization/personalizationService.ts';
+import { Memory } from '../types/memory.ts';
 
 interface MessageInput {
   role: string;
@@ -20,9 +21,10 @@ interface FormattedMessage {
 export async function injectContext(
   userId: string,
   accessToken: string,
-  messages: MessageInput[]
+  messages: MessageInput[],
+  retrievedMemories: Memory[] = []
 ): Promise<FormattedMessage[]> {
-  const memories: Array<{ text: string }> = [];
+  const memories = retrievedMemories.map(memory => ({ text: memory.content }));
 
   // Generate the dynamic system prompt with injected personalization
   const systemInstruction = PersonalizationService.generatePersonalizedPrompt(userId, messages, memories);

@@ -22,10 +22,10 @@ export const HelpCentreSettings: React.FC = () => {
       <div className="flex flex-col gap-3 border-b border-border-color pb-6">
         <h2 className="text-2xl sm:text-3xl font-semibold text-text-primary flex items-center gap-3">
           <HelpCircle className="w-8 h-8 text-[var(--accent-primary)]" />
-          Paralex Help Centre
+          MemoryBase Help Centre
         </h2>
         <p className="text-text-secondary text-[15px] max-w-2xl leading-relaxed">
-          Paralex is an AI-native workspace that combines powerful AI models, web search, research capabilities, and productivity tools into a single experience.
+          MemoryBase is an AI-native workspace that combines powerful AI models, web search, research capabilities, and productivity tools into a single experience.
         </p>
       </div>
 
@@ -70,10 +70,10 @@ export const HelpCentreSettings: React.FC = () => {
                     Visit <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="text-[var(--accent-primary)] hover:underline font-medium">openrouter.ai</a> and sign up.
                   </Step>
                   <Step number={2} title="Generate API Key">
-                    Navigate to the <strong>Keys</strong> section and click <strong>Create API Key</strong>. Name it "Paralex" and copy the key.
+                    Navigate to the <strong>Keys</strong> section and click <strong>Create API Key</strong>. Name it "MemoryBase" and copy the key.
                   </Step>
-                  <Step number={3} title="Add to Paralex">
-                    Open Paralex <strong>Settings</strong> &gt; <strong>AI Model & API Key</strong> and paste your key.
+                  <Step number={3} title="Add to MemoryBase">
+                    Open MemoryBase <strong>Settings</strong> &gt; <strong>AI Model & API Key</strong> and paste your key.
                   </Step>
                   <Step number={4} title="Save Settings">
                     Your key is securely saved locally.
@@ -84,7 +84,7 @@ export const HelpCentreSettings: React.FC = () => {
              <div className="space-y-6">
                <CalloutBox type="info" icon={ShieldCheck} title="Privacy Notice">
                  <p className="text-[13px] text-text-secondary mt-1.5 leading-relaxed">
-                   Paralex never stores or records your API keys. All keys remain securely encrypted on your device and are fully under your control.
+                   MemoryBase never stores or records your API keys. All keys remain securely encrypted on your device and are fully under your control.
                  </p>
                </CalloutBox>
               </div>
@@ -107,7 +107,7 @@ export const HelpCentreSettings: React.FC = () => {
                 <li>1. Verify that your OpenRouter API key is valid.</li>
                 <li>2. Ensure the API key is correctly saved in Settings.</li>
                 <li>3. Check your internet connection.</li>
-                <li>4. Restart Paralex and try again.</li>
+                <li>4. Restart MemoryBase and try again.</li>
               </ul>
             </CalloutBox>
           </div>

@@ -12,7 +12,9 @@ import { HeadingRenderer } from "./markdown/HeadingRenderer";
 import { AnchorLink } from "./markdown/AnchorLink";
 import { FileTree } from "./markdown/FileTree";
 import { ReasoningPanel } from "./reasoning/ReasoningPanel";
-import { ReasoningPhase } from "../context/ChatContext";
+import { ReasoningPhase, ResearchSession } from "../store/chatStore";
+import { ResearchSessionView } from "./research/ResearchSessionView";
+import { MemoryTracePanel } from "./memory/MemoryTracePanel";
 
 interface ChatMessageProps {
   id: string;
@@ -22,16 +24,21 @@ interface ChatMessageProps {
   isGenerating?: boolean;
   isSearchingWeb?: boolean;
   reasoning?: ReasoningPhase;
+  research?: ResearchSession;
+  memoryTraceId?: string;
+  mode?: string;
+  sources?: Array<{ title: string; url: string; snippet?: string }>;
   onEdit?: (id: string, newContent: string) => void;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, images, isGenerating, isSearchingWeb, reasoning, onEdit }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, images, isGenerating, isSearchingWeb, reasoning, research, memoryTraceId, mode, sources, onEdit }) => {
   const isUser = role === "user";
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
   const [debouncedContent, setDebouncedContent] = useState(content);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const isMemoryTraceEnabled = import.meta.env.VITE_ENABLE_MEMORY_TRACE === 'true';
 
   useEffect(() => {
     return () => {
@@ -101,7 +108,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
       .replace(/\\\)/g, "$");
   };
 
-  const processedContent = preprocessLaTeX(debouncedContent);
+  let processedContent = preprocessLaTeX(debouncedContent);
+  if (mode === 'standard') {
+    processedContent = processedContent.replace(/<(reasoning|thinking|think|analysis|plan|scratchpad|chain_of_thought)>[\s\S]*?(<\/\1>|$)/gi, '');
+    const scaffoldingRegex = /^(?:#+\s*|\*\*)?(?:Problem Restate|Analysis Breakdown|Options Considered|Tradeoffs|Recommended Approach|Implementation Plan|Problem|Analysis):?(?:\*\*)?\s*[\s\S]*?(?=\n(?:#+\s*|\*\*)?(?:Problem Restate|Analysis Breakdown|Options Considered|Tradeoffs|Recommended Approach|Implementation Plan|Problem|Analysis):?(?:\*\*)?|$)/gim;
+    processedContent = processedContent.replace(scaffoldingRegex, '');
+    processedContent = processedContent.trim();
+  }
 
   const markdownComponents = {
     h1({ children, ...props }: any) {
@@ -276,15 +289,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                 }
               `}</style>
               
-              {isSearchingWeb && (
-                <div className="flex items-center gap-2 mb-3 text-[13px] font-medium text-[var(--accent)] bg-[var(--accentMuted)] px-3 py-1.5 rounded-full w-max border border-[var(--accent)]/20 shadow-sm animate-pulse">
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Browsing the web...</span>
+
+              
+              {isSearchingWeb && isGenerating && (
+                <div className="flex items-center gap-2 mb-3 text-text-secondary text-sm font-medium">
+                  <Globe className="w-4 h-4 animate-pulse text-blue-500" />
+                  <span className="animate-pulse">Searching the web...</span>
                 </div>
               )}
-              
+
               {reasoning && (
                 <ReasoningPanel reasoning={reasoning} />
+              )}
+
+              {research && (
+                <ResearchSessionView 
+                  session={research} 
+                  isGenerating={isGenerating}
+                  onCancel={() => {
+                    // Triggers the abort logic upstream if streaming
+                    if (isGenerating) {
+                      window.dispatchEvent(new CustomEvent('abort-research'));
+                    }
+                  }} 
+                />
               )}
               
               {processedContent && (
@@ -302,6 +330,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                   <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "0ms" }}></div>
                   <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "150ms" }}></div>
                   <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "300ms" }}></div>
+                </div>
+              )}
+
+              {!isGenerating && memoryTraceId && isMemoryTraceEnabled && (
+                <MemoryTracePanel requestId={memoryTraceId} />
+              )}
+
+              {sources && sources.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-border-color w-full">
+                  <h4 className="text-sm font-semibold text-text-primary mb-3">Sources</h4>
+                  <div className="flex flex-col gap-2">
+                    {sources.map((s, i) => {
+                      let domain = "Link";
+                      try {
+                        domain = new URL(s.url).hostname.replace('www.', '');
+                      } catch(e) {}
+                      return (
+                        <a key={i} href={s.url} target="_blank" rel="noreferrer" className="flex flex-col justify-center gap-0.5 text-sm text-text-primary hover:text-[var(--accent)] hover:bg-[var(--surfaceSecondary)] px-3 py-2 rounded-lg transition-colors border border-[var(--border)] w-full max-w-full group/source">
+                          <span className="font-medium truncate transition-colors">{s.title || domain}</span>
+                          <span className="text-xs text-text-secondary truncate transition-colors group-hover/source:text-[var(--accent)]">{domain}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

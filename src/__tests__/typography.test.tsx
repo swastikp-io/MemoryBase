@@ -55,7 +55,7 @@ describe('Typography & Theme Validation', () => {
       </ThemeProvider>
     );
     
-    const listItem = screen.getByText(/Handles the user interface/i);
+    const listItem = screen.getAllByText(/Handles the user interface/i)[0];
     expect(listItem).toBeDefined();
     expect(listItem.className).not.toContain('text-white');
     expect(listItem.className).not.toContain('text-zinc-100');

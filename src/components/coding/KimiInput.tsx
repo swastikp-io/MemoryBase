@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Plus, ArrowUp, X, Square, Image, Globe, ChevronDown, Check, Search } from "lucide-react";
-import { useSettingsStore } from "../store/settings";
+import { useSettingsStore } from "../../store/settings";
 import { motion, AnimatePresence } from "motion/react";
 
 interface ChatInputProps {
@@ -187,7 +187,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Paralex"
+            placeholder="Ask MemoryBase"
             className={`flex-1 bg-transparent resize-none border-none focus:ring-0 text-text-primary py-2 px-2 text-[15px] outline-none scrollbar-hide h-[40px] flex items-center placeholder-text-secondary`}
             rows={1}
             disabled={isStreaming}

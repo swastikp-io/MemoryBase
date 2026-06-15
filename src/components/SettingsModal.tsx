@@ -176,12 +176,12 @@ const ProfileSettings = ({ settings }: { settings: SettingsState }) => (
 
 const PersonalizationSettings = ({ settings }: { settings: SettingsState }) => (
   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-    <SectionTitle title="Personalization" description="Customize how Paralex interacts with you." />
+    <SectionTitle title="Personalization" description="Customize how MemoryBase interacts with you." />
 
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-text-primary mb-1.5">What should Paralex know about you?</label>
-        <p className="text-xs text-text-secondary mb-2 leading-relaxed">Provide details to help Paralex tailor its responses (e.g. software engineer, loves brief answers, strictly typing).</p>
+        <label className="block text-sm font-medium text-text-primary mb-1.5">What should MemoryBase know about you?</label>
+        <p className="text-xs text-text-secondary mb-2 leading-relaxed">Provide details to help MemoryBase tailor its responses (e.g. software engineer, loves brief answers, strictly typing).</p>
         <textarea
           value={settings.personalization.instructionsAbout}
           onChange={(e) => settings.updatePersonalization({ instructionsAbout: e.target.value })}
@@ -192,7 +192,7 @@ const PersonalizationSettings = ({ settings }: { settings: SettingsState }) => (
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-text-primary mb-1.5">How would you like Paralex to respond?</label>
+        <label className="block text-sm font-medium text-text-primary mb-1.5">How would you like MemoryBase to respond?</label>
         <textarea
           value={settings.personalization.instructionsRespond}
           onChange={(e) => settings.updatePersonalization({ instructionsRespond: e.target.value })}

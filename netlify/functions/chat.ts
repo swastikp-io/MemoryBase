@@ -35,7 +35,7 @@ export default async (req: Request) => {
     apiKey: process.env.OPENROUTER_API_KEY || "dummy_key",
     defaultHeaders: {
       "HTTP-Referer": appUrl,
-      "X-Title": "Paralex",
+      "X-Title": "MemoryBase",
     }
   });
 
@@ -47,6 +47,7 @@ export default async (req: Request) => {
       const mockRes = {
         write: (chunk: string) => {
           controller.enqueue(encoder.encode(chunk));
+          return true;
         },
         end: () => {
           controller.close();
@@ -59,7 +60,7 @@ export default async (req: Request) => {
           ? MemoryExtractor.extract(currentOpenAI, userId, accessToken, messages, model)
           : Promise.resolve(false);
 
-        await ReasoningController.execute(currentOpenAI, userId, accessToken, messages, model, searchWeb, mockRes, user.email);
+        await ReasoningController.execute(currentOpenAI, userId, accessToken, messages, model, Boolean(searchWeb), mockRes, user.email);
 
         try {
           const memoryUpdated = await memoryPromise;

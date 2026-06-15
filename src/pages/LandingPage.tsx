@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Command, Sun, Moon } from "lucide-react";
 import { useSettingsStore } from "../store/settings";
 import { useAuthStore } from "../store/auth";
-import { InviteModal } from "../components/InviteModal";
+import { AuthModal } from "../components/AuthModal";
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ export const LandingPage: React.FC = () => {
     updateAppearance({ themeMode: themeMode === 'light' ? 'dark' : 'light' });
   };
 
-  const handleTryParalex = (e: React.MouseEvent) => {
+  const handleTryMemoryBase = (e: React.MouseEvent) => {
     e.preventDefault();
     if (hasAccess) {
       navigate('/chat');
@@ -39,7 +39,7 @@ export const LandingPage: React.FC = () => {
       <nav className="fixed w-full left-0 top-0 z-50 flex items-center justify-between px-6 py-5 bg-[var(--background)]">
         <div className="flex items-center gap-2">
           <Command className="w-6 h-6 text-[var(--textPrimary)]" />
-          <span className="font-sans font-bold text-xl tracking-tight text-[var(--textPrimary)] uppercase">Paralex</span>
+          <span className="font-sans font-bold text-xl tracking-tight text-[var(--textPrimary)] uppercase">MemoryBase</span>
         </div>
 
         <div className="flex items-center gap-4 text-[15px] font-medium">
@@ -67,10 +67,10 @@ export const LandingPage: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <button
-              onClick={handleTryParalex}
+              onClick={handleTryMemoryBase}
               className={`w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium rounded-full flex items-center justify-center gap-2 transition-colors duration-200 ease-in-out ${themeMode === 'light' ? 'bg-[#0D0D0D] text-[#FFFFFF] hover:bg-[#262626]' : 'bg-[var(--textPrimary)] text-[var(--background)] hover:bg-[var(--textSecondary)] text-black'}`}
             >
-              Try Paralex <ArrowUpRight className="w-5 h-5 ml-1" />
+              Try MemoryBase <ArrowUpRight className="w-5 h-5 ml-1" />
             </button>
             <button
               onClick={() => navigate('/docs')}
@@ -90,7 +90,7 @@ export const LandingPage: React.FC = () => {
         >
           <img
             src="/heroimg.png"
-            alt="Paralex Interface"
+            alt="MemoryBase Interface"
             className="w-full max-w-[1400px] object-cover block"
           />
         </motion.div>
@@ -120,11 +120,10 @@ export const LandingPage: React.FC = () => {
         </div>
       </footer>
 
-      <InviteModal
+      <AuthModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        onSuccess={(user) => {
-          grantAccess(user);
+        onSuccess={() => {
           setIsInviteModalOpen(false);
           navigate('/chat');
         }}

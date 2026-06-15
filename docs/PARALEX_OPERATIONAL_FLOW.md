@@ -1,10 +1,10 @@
-# Paralex Operational Flow
+# MemoryBase Operational Flow
 
-Paralex is a React + Express AI assistant that combines a polished chat interface, Supabase authentication, user profile persistence, long-term memory, and OpenRouter-compatible model streaming. The system is designed around a fast linear response path, with heavier personalization and memory work running in the background so the user sees answers quickly.
+MemoryBase is a React + Express AI assistant that combines a polished chat interface, Supabase authentication, user profile persistence, long-term memory, and OpenRouter-compatible model streaming. The system is designed around a fast linear response path, with heavier personalization and memory work running in the background so the user sees answers quickly.
 
 ## High Level System
 
-Paralex has four main layers:
+MemoryBase has four main layers:
 
 1. **Frontend application**
    - React 19 + Vite.
@@ -21,7 +21,7 @@ Paralex has four main layers:
 3. **AI orchestration**
    - `ReasoningController` formats requests and streams model output.
    - `contextInjector` adds personalization and memory context into the system prompt.
-   - `promptCompiler` combines the base Paralex prompt with user settings and retrieved memories.
+   - `promptCompiler` combines the base MemoryBase prompt with user settings and retrieved memories.
 
 4. **Data and identity**
    - Supabase Auth handles GitHub login/register.
@@ -44,9 +44,9 @@ flowchart LR
   Stream --> UI
 ```
 
-## Why Paralex Uses Linear Reasoning
+## Why MemoryBase Uses Linear Reasoning
 
-Paralex currently favors a **linear reasoning path** for normal chat completion. Instead of spawning multiple agent branches for every user query, the backend formats one optimized model request and streams it directly.
+MemoryBase currently favors a **linear reasoning path** for normal chat completion. Instead of spawning multiple agent branches for every user query, the backend formats one optimized model request and streams it directly.
 
 This design is intentional:
 
@@ -60,7 +60,7 @@ The code still has room for richer orchestration later. Files such as `server/or
 
 ## Parallel Background Processing
 
-Although final answer generation is linear, Paralex still performs some work in parallel.
+Although final answer generation is linear, MemoryBase still performs some work in parallel.
 
 During `/api/chat`:
 
@@ -71,7 +71,7 @@ During `/api/chat`:
 5. When generation finishes, the backend awaits memory extraction.
 6. The frontend receives either `memoryUpdated` or `memoryError`.
 
-This gives Paralex a useful balance:
+This gives MemoryBase a useful balance:
 
 - The assistant can answer quickly.
 - Memory can be extracted without blocking the visible response.
@@ -122,7 +122,7 @@ Its responsibilities are:
 The extractor should save only durable, useful information. Good memories are facts like:
 
 - "User prefers concise TypeScript examples."
-- "User is building Paralex with Supabase."
+- "User is building MemoryBase with Supabase."
 - "User wants GitHub-only authentication."
 
 Weak memories should be avoided:
@@ -136,7 +136,7 @@ Weak memories should be avoided:
 
 ```mermaid
 flowchart TD
-  A["User opens Paralex"] --> B{"Has Supabase session?"}
+  A["User opens MemoryBase"] --> B{"Has Supabase session?"}
   B -- No --> C["Landing page"]
   C --> D["Login/Register modal"]
   D --> E["GitHub OAuth via Supabase"]
@@ -145,7 +145,7 @@ flowchart TD
   F --> H["Upsert public.profiles row"]
   H --> I["Authenticated app shell"]
   B -- Yes --> I
-  I --> J["User clicks Try Paralex"]
+  I --> J["User clicks Try MemoryBase"]
   J --> K["Protected /chat route"]
   K --> L["User sends message"]
   L --> M["Frontend gets Supabase access token"]
@@ -167,7 +167,7 @@ flowchart TD
   Y --> AB["Finish normally"]
 ```
 
-## Paralex Architecture
+## MemoryBase Architecture
 
 ```mermaid
 flowchart TB
@@ -232,7 +232,7 @@ The frontend is organized around routes, shared state, and a small set of major 
 
 - `src/pages/LandingPage.tsx`
   - Public landing page.
-  - Opens login/register modal when unauthenticated users click Try Paralex.
+  - Opens login/register modal when unauthenticated users click Try MemoryBase.
   - Sends authenticated users to `/chat`.
 
 - `src/components/RegistrationModal.tsx`
@@ -276,9 +276,9 @@ flowchart TD
 
 ## User Workflow
 
-1. User lands on the public Paralex page.
-2. User clicks **Register**, **Log in**, or **Try Paralex**.
-3. If not authenticated, Paralex opens the GitHub auth modal.
+1. User lands on the public MemoryBase page.
+2. User clicks **Register**, **Log in**, or **Try MemoryBase**.
+3. If not authenticated, MemoryBase opens the GitHub auth modal.
 4. Supabase handles GitHub OAuth.
 5. The callback stores profile details in:
    - local settings
@@ -300,7 +300,7 @@ flowchart TD
 
 ## Models Used
 
-Paralex uses OpenRouter-compatible model IDs. The current UI exposes these model options in `src/components/MainChat.tsx` and `src/components/SettingsModal.tsx`:
+MemoryBase uses OpenRouter-compatible model IDs. The current UI exposes these model options in `src/components/MainChat.tsx` and `src/components/SettingsModal.tsx`:
 
 | Model ID | Display Name | Provider | Current Usage |
 |---|---|---|---|
@@ -320,7 +320,7 @@ The three memory controls work together:
 
 | Toggle | Backend Effect |
 |---|---|
-| Memory Toggle | Master switch. If off, Paralex does not retrieve memories and does not save new memories. |
+| Memory Toggle | Master switch. If off, MemoryBase does not retrieve memories and does not save new memories. |
 | Conversation Continuity | If on, saved memories are retrieved and injected into future prompts. |
 | Auto Memory Detection | If on, recent user messages are analyzed and durable facts are saved. |
 

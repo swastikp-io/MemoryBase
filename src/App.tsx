@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { MainChat } from "./components/MainChat";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { ChatProvider } from "./context/ChatContext";
+import { useChatStore } from "./store/chatStore";
 import { LandingPage } from "./pages/LandingPage";
 
 
@@ -13,6 +13,17 @@ import { useSettingsStore } from "./store/settings";
 import { ThemeProvider } from "./theme/ThemeProvider";
 
 function ChatApp() {
+  const { loadChats, chats, activeChatId, loadChat, createChat } = useChatStore();
+
+  useEffect(() => {
+    const init = async () => {
+      await loadChats();
+      // Set empty state for new session without clearing sidebar chats
+      useChatStore.setState({ activeChatId: null, messages: [] });
+    };
+    init();
+  }, []);
+
   return (
     <Layout>
       <MainChat />
@@ -43,9 +54,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <ChatProvider>
-          <AnimatedRoutes />
-        </ChatProvider>
+        <AnimatedRoutes />
       </ThemeProvider>
     </BrowserRouter>
   );

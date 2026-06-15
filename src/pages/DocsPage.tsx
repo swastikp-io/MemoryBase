@@ -109,7 +109,7 @@ function useScrollSpy(ids: string[], offset = 150) {
 
 export const DocsPage: React.FC = () => {
   const sections = [
-    { id: "introduction", label: "What is Paralex" },
+    { id: "introduction", label: "What is MemoryBase" },
     { id: "architecture", label: "Architecture" },
     { id: "features", label: "Features" },
     { id: "configuration", label: "Configuration" },
@@ -144,7 +144,7 @@ export const DocsPage: React.FC = () => {
       <nav className="fixed w-full left-0 top-0 z-50 flex items-center justify-between px-6 py-4 bg-[var(--background)]/95 backdrop-blur-md border-b border-[var(--border)]">
         <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <Command className="w-5 h-5 text-[var(--textPrimary)]" />
-          <span className="font-sans font-semibold text-lg tracking-tight text-[var(--textPrimary)] uppercase">Paralex</span>
+          <span className="font-sans font-semibold text-lg tracking-tight text-[var(--textPrimary)] uppercase">MemoryBase</span>
         </Link>
         
         <div className="flex items-center gap-4 text-sm font-medium">
@@ -171,30 +171,30 @@ export const DocsPage: React.FC = () => {
                 <span>Version: 1.0.0</span>
               </div>
               <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-[var(--textPrimary)] mb-8 leading-[1.1]">
-                Everything you need to know about Paralex
+                Everything you need to know about MemoryBase
               </h1>
               <p className="text-xl md:text-2xl text-[var(--textSecondary)] leading-[1.6] max-w-[65ch]">
                 The intelligent AI workspace built for deep, productive work.
               </p>
             </div>
 
-            {/* Section 1: What is Paralex */}
+            {/* Section 1: What is MemoryBase */}
             <section id="introduction" className="scroll-mt-32 mb-32 group">
               <div className="flex items-center gap-3 mb-10">
-                <h2 className="text-4xl font-medium text-[var(--textPrimary)]">What is Paralex?</h2>
+                <h2 className="text-4xl font-medium text-[var(--textPrimary)]">What is MemoryBase?</h2>
                 <LinkIcon className="w-6 h-6 text-transparent group-hover:text-[var(--textTertiary)] transition-colors cursor-pointer" onClick={() => scrollTo('introduction')} />
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 xl:gap-16 items-start">
                 <div className="text-lg text-[var(--textSecondary)] leading-8 space-y-8 max-w-[75ch]">
                   <p>
-                    Paralex is a context-aware, persistent AI assistant designed for deep, productive work. Unlike traditional chat interfaces, Paralex functions as an integrated workspace that remembers your context, reasons through complex problems, and provides reliable, structured answers.
+                    MemoryBase is a context-aware, persistent AI assistant designed for deep, productive work. Unlike traditional chat interfaces, MemoryBase functions as an integrated workspace that remembers your context, reasons through complex problems, and provides reliable, structured answers.
                   </p>
                   <p>
                     Built to make you extraordinarily productive, it serves as a unified command center for all your AI needs.
                   </p>
                 </div>
                 <div className="bg-[var(--surfaceSecondary)] p-8 md:p-10 rounded-3xl border border-[var(--border)]">
-                  <h3 className="text-2xl font-medium text-[var(--textPrimary)] mb-4">The Paralex Philosophy</h3>
+                  <h3 className="text-2xl font-medium text-[var(--textPrimary)] mb-4">The MemoryBase Philosophy</h3>
                   <p className="text-[var(--textSecondary)] text-lg leading-8">
                     We believe AI tools shouldn't just be conversational bots. They should be integrated, stateful extensions of your thought process. Everything we build is centered around minimizing friction and maximizing context retention.
                   </p>
@@ -209,7 +209,7 @@ export const DocsPage: React.FC = () => {
                 <LinkIcon className="w-6 h-6 text-transparent group-hover:text-[var(--textTertiary)] transition-colors cursor-pointer" onClick={() => scrollTo('architecture')} />
               </div>
               <p className="text-lg text-[var(--textSecondary)] leading-8 mb-12 max-w-[75ch]">
-                Paralex is built with a modern, high-performance tech stack ensuring speed and reliability:
+                MemoryBase is built with a modern, high-performance tech stack ensuring speed and reliability:
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <ArchitectureCard 
@@ -241,12 +241,12 @@ export const DocsPage: React.FC = () => {
                 <FeatureCard 
                   title="Persistent Memory" 
                   icon={Database} 
-                  description="Never repeat yourself. Paralex stores critical context across sessions, retrieving pertinent facts exactly when you need them." 
+                  description="Never repeat yourself. MemoryBase stores critical context across sessions, retrieving pertinent facts exactly when you need them." 
                 />
                 <FeatureCard 
                   title="Deep Reasoning" 
                   icon={Brain} 
-                  description="Paralex uses an advanced reasoning engine to break down complex queries, analyze paths, and formulate robust solutions." 
+                  description="MemoryBase uses an advanced reasoning engine to break down complex queries, analyze paths, and formulate robust solutions." 
                 />
                 <FeatureCard 
                   title="Open Integration" 
@@ -265,7 +265,7 @@ export const DocsPage: React.FC = () => {
               <div className="grid grid-cols-1 xl:grid-cols-5 gap-12 xl:gap-16 items-start">
                 <div className="xl:col-span-2 text-lg text-[var(--textSecondary)] leading-8 space-y-8 max-w-[75ch]">
                   <p>
-                    Setting up Paralex is straightforward. You have full control over which models to use and how they are authenticated.
+                    Setting up MemoryBase is straightforward. You have full control over which models to use and how they are authenticated.
                   </p>
                   <p>
                     By configuring your OpenRouter API key locally, your keys and usage data are stored on your device and never sent to our servers.

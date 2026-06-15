@@ -1,27 +1,36 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, ArrowUp, X, Square, Image, ChevronDown, Check, Search, Mic } from "lucide-react";
+import { Plus, ArrowUp, X, Square, Image, ChevronDown, Check, Search, AudioLines, Globe } from "lucide-react";
 import { useSettingsStore } from "../store/settings";
+import { useChatStore } from "../store/chatStore";
 import { motion, AnimatePresence } from "motion/react";
 
+import { ChatMode } from "../lib/models/modes";
+import { MODEL_REGISTRY } from "../lib/models/registry";
+
 interface ChatInputProps {
-  onSendMessage: (content: string, images?: string[]) => void;
+  onSendMessage: (content: string, images?: string[], webSearchEnabled?: boolean) => void;
   onStopStreaming: () => void;
   isStreaming: boolean;
   isCentered?: boolean;
+  selectedMode: ChatMode;
+  onSelectMode: (mode: ChatMode) => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
   onStopStreaming,
   isStreaming,
-  isCentered = false
+  isCentered = false,
+  selectedMode,
+  onSelectMode
 }) => {
   const settings = useSettingsStore();
+  const webSearchEnabled = useChatStore(state => state.webSearchEnabled);
+  const toggleWebSearch = useChatStore(state => state.toggleWebSearch);
   const [input, setInput] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('Deep research');
   const [isListening, setIsListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +110,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setIsListening(false);
     }
     if ((input.trim() || images.length > 0) && !isStreaming) {
-      onSendMessage(input.trim(), images.length > 0 ? images : undefined);
+      onSendMessage(input.trim(), images.length > 0 ? images : undefined, webSearchEnabled);
       setInput("");
       setImages([]);
       if (textareaRef.current) {
@@ -145,10 +154,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const hasContent = input.trim() || images.length > 0;
 
   return (
-    <div className={`absolute left-0 right-0 bg-transparent px-3 pointer-events-none md:px-5 transition-all duration-500 ease-in-out z-20 ${
+    <div id="chat-input-container" className={`absolute left-0 right-0 bg-transparent px-3 pointer-events-none md:px-5 transition-all duration-500 ease-in-out z-20 ${
       isCentered ? 'top-1/2 -translate-y-1/2 pb-5 pt-0 -mt-4' : 'bottom-0 pb-5 pt-2 md:pb-5'
     }`}>
       <div className="max-w-[880px] mx-auto w-full relative pointer-events-auto">
+
         <motion.form
           layout
           initial={{ borderRadius: 9999 }}
@@ -199,6 +209,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </AnimatePresence>
           </div>
 
+          <button
+            type="button"
+            onClick={toggleWebSearch}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors whitespace-nowrap border ${
+              webSearchEnabled
+                ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 shadow-sm'
+                : 'bg-transparent text-text-secondary border-transparent hover:bg-[var(--surfaceSecondary)] hover:text-text-primary'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            Search
+          </button>
+
           <input
             type="file"
             accept="image/*"
@@ -213,7 +236,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Paralex"
+            placeholder="Ask MemoryBase"
             className={`flex-1 bg-transparent resize-none border-none focus:ring-0 text-text-primary py-2 px-2 text-[15px] outline-none scrollbar-hide h-[40px] flex items-center placeholder-text-secondary`}
             rows={1}
             disabled={isStreaming}
@@ -221,24 +244,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           />
 
           <div className="flex-shrink-0 flex items-center gap-2 pr-1">
-            {/* Mic Button */}
-            <button
-              type="button"
-              onClick={toggleListening}
-              className={`p-1.5 rounded-full transition-colors ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-[var(--surfaceSecondary)] text-text-secondary hover:text-text-primary'}`}
-              title="Voice input"
-            >
-              <Mic className="w-[20px] h-[20px]" strokeWidth={1.5} />
-            </button>
-
-
             {/* Model Selector Dropdown */}
             <div className="relative" ref={modelMenuRef}>
               <button
                 type="button"
                 onClick={() => setShowModelMenu(!showModelMenu)}
                 className={`p-1.5 rounded-full transition-colors ${showModelMenu ? 'bg-[var(--surfaceSecondary)] text-text-primary' : 'hover:bg-[var(--surfaceSecondary)] text-text-secondary hover:text-text-primary'}`}
-                title={selectedModel}
+                title={MODEL_REGISTRY[selectedMode]?.label || 'Standard'}
               >
                 <ChevronDown className="w-[20px] h-[20px]" strokeWidth={1.5} />
               </button>
@@ -252,18 +264,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     transition={{ duration: 0.15 }}
                     className="absolute bottom-[calc(100%+12px)] right-0 w-48 bg-[var(--surface)] border border-[var(--border)] shadow-2xl rounded-2xl py-2 z-50 flex flex-col"
                   >
-                    {['Deep research', 'Deep reasoning', 'Kimi K2.6'].map((model) => (
+                    {(Object.entries(MODEL_REGISTRY) as [ChatMode, { label: string }][]).map(([mode, config]) => (
                       <button
-                        key={model}
+                        key={mode}
                         type="button"
                         onClick={() => {
-                          setSelectedModel(model);
+                          onSelectMode(mode);
                           setShowModelMenu(false);
                         }}
                         className="flex items-center justify-between px-4 py-2.5 hover:bg-[var(--surfaceSecondary)] transition-colors text-[13px] text-text-primary text-left w-full group/btn"
                       >
-                        {model}
-                        {selectedModel === model && <Check className="w-4 h-4 text-text-primary" />}
+                        {config.label}
+                        {selectedMode === mode && <Check className="w-4 h-4 text-text-primary" />}
                       </button>
                     ))}
                   </motion.div>
@@ -289,9 +301,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               ) : hasContent ? (
                 <motion.button
                   key="send"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
+                  initial={{ scale: 0, opacity: 0, rotate: -90 }}
+                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  exit={{ scale: 0, opacity: 0, rotate: 90 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   type="submit"
                   disabled={isStreaming}
@@ -299,7 +311,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 >
                   <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
                 </motion.button>
-              ) : null}
+              ) : (
+                <motion.button
+                  key="voice"
+                  initial={{ scale: 0, opacity: 0, rotate: 90 }}
+                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  exit={{ scale: 0, opacity: 0, rotate: -90 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  type="button"
+                  onClick={toggleListening}
+                  className={`w-[34px] h-[34px] flex items-center justify-center rounded-full transition-all ${
+                    isListening 
+                      ? 'bg-red-500/20 text-red-500 animate-pulse' 
+                      : 'bg-[var(--accent-primary)] text-[var(--accent-fg)] hover:opacity-90 hover:scale-105'
+                  }`}
+                  title="Voice input"
+                >
+                  <AudioLines className="w-[18px] h-[18px]" strokeWidth={2.5} />
+                </motion.button>
+              )}
             </AnimatePresence>
           </div>
         </motion.form>

@@ -1,17 +1,15 @@
 import { create } from 'zustand';
 
-interface SearchStore {
+interface SearchState {
   isOpen: boolean;
   open: () => void;
   close: () => void;
-  query: string;
-  setQuery: (query: string) => void;
+  toggle: () => void;
 }
 
-export const useSearchStore = create<SearchStore>((set) => ({
+export const useSearchStore = create<SearchState>((set) => ({
   isOpen: false,
   open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false, query: '' }),
-  query: '',
-  setQuery: (query) => set({ query }),
+  close: () => set({ isOpen: false }),
+  toggle: () => set((state) => ({ isOpen: !state.isOpen })),
 }));

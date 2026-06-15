@@ -33,7 +33,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, code, isGenerati
 
   const themeMode = appearance?.themeMode;
   // If the app doesn't formally support 'system' yet, this still gracefully handles the case if it gets added
-  const isDark = themeMode === 'system' ? isSystemDark : themeMode === 'dark';
+  const isDark = (themeMode as string) === 'system' ? isSystemDark : themeMode === 'dark';
   const syntaxStyle = isDark ? vscDarkPlus : oneLight;
 
   const cleanCode = code.replace(/\n$/, '');

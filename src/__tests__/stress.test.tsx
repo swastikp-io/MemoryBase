@@ -46,13 +46,17 @@ describe('Kimi K2.6 Stress & Rendering Tests', () => {
       disconnect() {}
     };
     
+    global.window.matchMedia = (global.window.matchMedia || function() {
+      return { matches: false, addListener: function() {}, removeListener: function() {}, addEventListener: function() {}, removeEventListener: function() {} };
+    }) as any;
+    
     // Intersection observer mock for TOC
     global.IntersectionObserver = class IntersectionObserver {
       constructor() {}
       observe() {}
       unobserve() {}
       disconnect() {}
-    };
+    } as any;
   });
 
   test('Test A: Renders 15,000 word report without crashing', async () => {
@@ -103,6 +107,6 @@ describe('Kimi K2.6 Stress & Rendering Tests', () => {
     
     expect(screen.getByText('Enterprise Architecture')).toBeDefined();
     expect(screen.getByText('Core Services')).toBeDefined();
-    expect(screen.getByText('Project Structure')).toBeDefined(); // The inner file tree component mounted
+    expect(screen.getAllByText('Project Structure')[0]).toBeDefined(); // The inner file tree component mounted
   });
 });

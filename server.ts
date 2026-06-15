@@ -3,8 +3,17 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import OpenAI, { toFile } from "openai";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import { requireAuth } from "./server/middleware/auth.ts";
 import { ReasoningController } from "./server/orchestrator/reasoningController.ts";
 import { PersonalizationService } from "./server/personalization/personalizationService.ts";
+import { authRouter } from "./server/api/auth.ts";
+import { chatsRouter, messagesRouter } from "./server/api/chats.ts";
+import { memoriesRouter } from "./server/api/memories.ts";
+import { resolveModel } from "./src/lib/models/resolver.ts";
+import { DebugTraceStore } from "./server/services/memory/debugTraceStore.ts";
+
 
 dotenv.config();
 
@@ -17,19 +26,37 @@ const openai = new OpenAI({
 export const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(cookieParser());
+
+app.use("/api/auth", authRouter);
 
 export function setupRoutes() {
-
   async function authenticateRequest(req: express.Request, res: express.Response) {
-    return { accessToken: "dummy_token", user: { id: "anonymous-user-123" } };
+    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized: Missing or invalid token" });
+      return null;
+    }
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'memorybase-super-secret-key-change-in-prod') as any;
+      (req as any).user = decoded; // inject into request context
+      return { accessToken: token, user: decoded };
+    } catch (e) {
+      res.status(401).json({ error: "Unauthorized: Invalid token" });
+      return null;
+    }
   }
+
+  app.use("/api/chats", requireAuth, chatsRouter);
+  app.use("/api/messages", requireAuth, messagesRouter);
+  app.use("/api/memories", requireAuth, memoriesRouter);
 
   // API route for chat message streaming
   app.post("/api/chat", async (req, res) => {
     const auth = await authenticateRequest(req, res);
     if (!auth) return;
 
-    const { messages, model } = req.body;
+    const { messages, mode, webSearch } = req.body;
     const userId = auth.user.id;
 
     if (!messages || !Array.isArray(messages)) {
@@ -43,7 +70,7 @@ export function setupRoutes() {
 
       const currentOpenAI = openai;
 
-      await ReasoningController.execute(currentOpenAI, userId, auth.accessToken, messages, model, res);
+      await ReasoningController.execute(currentOpenAI, userId, auth.accessToken, messages, mode, Boolean(webSearch), res);
       res.write("data: [DONE]\n\n");
       res.end();
 
@@ -69,19 +96,14 @@ export function setupRoutes() {
     const auth = await authenticateRequest(req, res);
     if (!auth) return;
 
-    const { firstMessage, model } = req.body;
+    const { firstMessage, mode } = req.body;
     if (!firstMessage) {
       return res.status(400).json({ error: "firstMessage is required" });
     }
 
     try {
       const currentOpenAI = openai;
-      let actualModel = "openai/gpt-oss-120b:free";
-      if (model === "research" || model === "google/gemma-4-31b-it:free") {
-        actualModel = "google/gemma-4-31b-it:free";
-      } else if (model === "coding" || model === "moonshotai/kimi-k2.6:free") {
-        actualModel = "moonshotai/kimi-k2.6:free";
-      }
+      const actualModel = resolveModel(mode as any);
 
       const completion = await currentOpenAI.chat.completions.create({
         model: actualModel,
@@ -117,6 +139,21 @@ export function setupRoutes() {
     }
   });
 
+  app.get("/api/chat/debug/:requestId", async (req, res) => {
+    const auth = await authenticateRequest(req, res);
+    if (!auth) return;
+
+    const trace = DebugTraceStore.get(req.params.requestId);
+    if (!trace) {
+      return res.status(404).json({ error: "Debug trace not found" });
+    }
+    if (trace.userId !== auth.user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    res.json(trace);
+  });
+
   app.post("/api/canvas/edit", async (req, res) => {
     const auth = await authenticateRequest(req, res);
     if (!auth) return;
@@ -137,7 +174,7 @@ export function setupRoutes() {
           {
             role: "system",
             content: [
-              "You are Paralex Canvas edit mode.",
+              "You are MemoryBase Canvas edit mode.",
               "Return only the replacement text for the selected range.",
               "Do not include prefaces, explanations, markdown fences, or quotes unless they belong in the replacement.",
               "Preserve the user's language and formatting intent.",
@@ -199,9 +236,15 @@ export function setupRoutes() {
 
 }
 
+import { MemoryJobs } from './server/services/memory/jobs.ts';
+
 async function startServer() {
+
   setupRoutes();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+  // Start background memory jobs
+  MemoryJobs.startSchedules();
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

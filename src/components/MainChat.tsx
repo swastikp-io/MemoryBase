@@ -2,16 +2,19 @@ import React, { useState, useRef, useEffect } from "react";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
-import { useChat, Message } from "../context/ChatContext";
+import { Message } from "../store/chatStore";
+import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settings";
+import { useAuthStore } from "../store/auth";
 import { DocumentOutline } from "./markdown/DocumentOutline";
-
+import { ChatMode } from "../lib/models/modes";
 
 export const MainChat: React.FC = () => {
-  const { chats, currentChatId, currentMessages, addMessage, updateModelMessage, updateChatModel, updateChatTitle, updateReasoningState, editAndTruncateAndAddMessage, createNewChat } = useChat();
+  const { chats, activeChatId, messages: currentMessages, loadChat, createChat, saveMessage, addMessageOptimistic, updateMessageContent, renameChat, updateChatMode } = useChatStore();
   const settings = useSettingsStore();
+  const { token } = useAuthStore();
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<'research' | 'reasoning' | 'coding'>('research');
+  const [selectedMode, setSelectedMode] = useState<ChatMode>('standard');
 
   useEffect(() => {
     const inputContainer = document.getElementById('chat-input-container');
@@ -28,16 +31,18 @@ export const MainChat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const currentChat = chats.find(c => c.id === currentChatId);
-    if (currentChat?.modelId && (currentChat.modelId === 'research' || currentChat.modelId === 'reasoning' || currentChat.modelId === 'coding')) {
-      setSelectedMode(currentChat.modelId as 'research' | 'reasoning' | 'coding');
+    const currentChat = chats.find(c => c.id === activeChatId);
+    if (currentChat?.mode) {
+      setSelectedMode(currentChat.mode as ChatMode);
+    } else {
+      setSelectedMode('standard');
     }
-  }, [currentChatId, chats]);
+  }, [activeChatId, chats]);
 
-  const handleSelectMode = (mode: 'research' | 'reasoning' | 'coding') => {
+  const handleSelectMode = (mode: ChatMode) => {
     setSelectedMode(mode);
-    if (currentChatId) {
-      updateChatModel(currentChatId, mode);
+    if (activeChatId) {
+      updateChatMode(activeChatId, mode);
     }
   };
 
@@ -62,9 +67,15 @@ export const MainChat: React.FC = () => {
     setIsStreaming(false);
   };
 
+  useEffect(() => {
+    const handleAbort = () => stopStreaming();
+    window.addEventListener('abort-research', handleAbort);
+    return () => window.removeEventListener('abort-research', handleAbort);
+  }, []);
 
 
-  const streamResponse = async (messages: Message[], activeChatId: string, modelMessageId: string, isFirstMessage: boolean = false) => {
+
+  const streamResponse = async (messages: Message[], activeChatId: string, modelMessageId: string, isFirstMessage: boolean = false, webSearchEnabled: boolean = false) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -74,18 +85,17 @@ export const MainChat: React.FC = () => {
     let fullResponse = "";
 
     try {
-      const accessToken = "dummy_token";
-
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
         signal: abortController.signal,
         body: JSON.stringify({
           messages: messages,
-          model: selectedMode,
+          mode: selectedMode,
+          webSearch: webSearchEnabled,
         }),
       });
 
@@ -116,32 +126,44 @@ export const MainChat: React.FC = () => {
               try {
                 const data = JSON.parse(dataStr);
                 if (data.isSearchingWeb) {
-                  updateModelMessage(activeChatId, modelMessageId, "", false, true);
+                  updateMessageContent(modelMessageId, "", false, true);
+                }
+                if (data.memoryTraceId) {
+                  updateMessageContent(modelMessageId, "", true, undefined, data.memoryTraceId);
                 }
                 if (data.text) {
-                  console.log(JSON.stringify(data.text));
                   fullResponse += data.text;
-                  updateModelMessage(activeChatId, modelMessageId, data.text, true);
-                  
-
+                  updateMessageContent(modelMessageId, data.text, true, false);
                 } else if (data.error) {
-                  updateModelMessage(activeChatId, modelMessageId, "\n\n**Error:** " + data.error, true);
+                  updateMessageContent(modelMessageId, "\n\n**Error:** " + data.error, true);
                 }
                 if (data.reasoning) {
-                  updateReasoningState(activeChatId, modelMessageId, data.reasoning);
+                  updateMessageContent(modelMessageId, "", false, undefined, undefined, data.reasoning);
+                }
+                if (data.research) {
+                  updateMessageContent(modelMessageId, "", false, undefined, undefined, undefined, data.research);
+                }
+                if (data.sources) {
+                  updateMessageContent(modelMessageId, "", false, false, undefined, undefined, undefined, data.sources);
                 }
               } catch (e) {
-                // Parse error
               }
             }
           }
         }
       }
+      
+      // Save assistant message to DB
+      await saveMessage(activeChatId, 'model', fullResponse);
+      
     } catch (error: any) {
       if (error.name === "AbortError") {
-        updateModelMessage(activeChatId, modelMessageId, "\n\n*Generation stopped.*", true);
+        updateMessageContent(modelMessageId, "\n\n*Generation stopped.*", true);
+        if (selectedMode === 'research') {
+          updateMessageContent(modelMessageId, "", false, undefined, undefined, undefined, { status: 'cancelled' });
+        }
       } else {
-        updateModelMessage(activeChatId, modelMessageId, "\n\n*Error: Could not reach the server.*", true);
+        updateMessageContent(modelMessageId, "\n\n*Error: Could not reach the server.*", true);
       }
     } finally {
       setIsStreaming(false);
@@ -156,38 +178,44 @@ export const MainChat: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (content: string, images?: string[]) => {
+  const handleSendMessage = async (content: string, images?: string[], webSearchEnabled?: boolean) => {
+    let chatIdToUse = activeChatId;
+    
+    if (!chatIdToUse) {
+      chatIdToUse = await createChat(selectedMode);
+      if (!chatIdToUse) {
+        console.error("Failed to create chat");
+        return;
+      }
+    }
+
     const newUserMessage: Message = { 
       id: Date.now().toString(), 
       role: "user", 
       content, 
-      images
+      images,
+      webSearchUsed: webSearchEnabled
     };
-    const activeChatId = addMessage(newUserMessage, undefined, undefined, selectedMode);
+    
+    // Optimistic UI update
+    addMessageOptimistic(newUserMessage);
+    
+    // Save to DB
+    await saveMessage(chatIdToUse, 'user', content, webSearchEnabled);
 
     const modelMessageId = (Date.now() + 1).toString();
     const newModelMessage: Message = { id: modelMessageId, role: "model", content: "" };
-    addMessage(newModelMessage, activeChatId);
+    addMessageOptimistic(newModelMessage);
 
     const messagesToSend = [...currentMessages.filter(m => m.role !== 'system'), newUserMessage];
-    await streamResponse(messagesToSend, activeChatId, modelMessageId, currentMessages.length === 0);
+    await streamResponse(messagesToSend, chatIdToUse, modelMessageId, currentMessages.length === 0, webSearchEnabled);
   };
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
-    if (!currentChatId || isStreaming) return;
+    if (!activeChatId || isStreaming) return;
 
-    const modelMessageId = (Date.now() + 1).toString();
-    const newModelMessage: Message = { id: modelMessageId, role: "model", content: "" };
-
-    // Truncate the chat state locally, update the edited message, and append the new model message atomically
-    editAndTruncateAndAddMessage(currentChatId, messageId, newContent, newModelMessage);
-
-    // We must manually prepare the truncated array to send to the API because setChats is async
-    const messageIndex = currentMessages.findIndex(m => m.id === messageId);
-    const sliced = currentMessages.slice(0, messageIndex + 1);
-    const messagesToSend = sliced.filter(m => m.role !== 'system').map(m => m.id === messageId ? { ...m, content: newContent } : m);
-
-    await streamResponse(messagesToSend, currentChatId, modelMessageId, false);
+    // This would require a DB update, but for now we fallback or skip
+    console.warn("Edit message requires complex DB sync - skipping for V2");
   };
 
   const generateTitle = async (chatId: string, userMessage: string) => {
@@ -204,18 +232,18 @@ export const MainChat: React.FC = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer dummy_token`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           firstMessage: cleanMsg,
-          model: selectedMode,
+          mode: selectedMode,
         }),
       });
 
       console.log("Response status:", response.status);
       if (!response.ok) {
         const fallbackWords = cleanMsg.split(" ").slice(0, 5).join(" ");
-        if (fallbackWords) updateChatTitle(chatId, fallbackWords, true, false);
+        if (fallbackWords) renameChat(chatId, fallbackWords);
         return;
       }
 
@@ -224,15 +252,15 @@ export const MainChat: React.FC = () => {
       const cleanTitle = data.title;
 
       if (cleanTitle && cleanTitle !== "New Chat") {
-        updateChatTitle(chatId, cleanTitle, true, false);
+        renameChat(chatId, cleanTitle);
       } else {
         const fallbackWords = cleanMsg.split(" ").slice(0, 5).join(" ");
-        if (fallbackWords) updateChatTitle(chatId, fallbackWords, true, false);
+        if (fallbackWords) renameChat(chatId, fallbackWords);
       }
     } catch (error) {
       console.error("Failed to generate title:", error);
       const fallbackWords = userMessage.trim().split(" ").slice(0, 5).join(" ");
-      if (fallbackWords) updateChatTitle(chatId, fallbackWords, true, false);
+      if (fallbackWords) renameChat(chatId, fallbackWords);
     }
   };
 
@@ -241,16 +269,16 @@ export const MainChat: React.FC = () => {
     .slice(-1)[0];
   const outlineContent = latestModelMessage ? latestModelMessage.content : '';
 
+
+
   return (
     <>
       {outlineContent && <DocumentOutline content={outlineContent} />}
 
-
-
       <div 
         id="chat-scroll-container"
         className="flex-1 overflow-y-auto pt-4 flex flex-col relative w-full scrollbar-thin scrollbar-thumb-border-color hover:scrollbar-thumb-text-secondary"
-        style={{ paddingBottom: 'calc(var(--input-height, 120px) + 20px + env(safe-area-inset-bottom))' }}
+        style={{ paddingBottom: 'calc(var(--input-height, 120px) + 40px + env(safe-area-inset-bottom))' }}
       >
         {currentMessages.length === 0 ? (
           <WelcomeScreen />
@@ -266,6 +294,10 @@ export const MainChat: React.FC = () => {
                 isGenerating={isStreaming && index === arr.length - 1 && msg.role === "model"}
                 isSearchingWeb={msg.isSearchingWeb}
                 reasoning={msg.reasoning}
+                research={msg.research}
+                sources={msg.sources}
+                memoryTraceId={msg.memoryTraceId}
+                mode={selectedMode}
                 onEdit={isStreaming ? undefined : handleEditMessage}
               />
             ))}
@@ -274,14 +306,14 @@ export const MainChat: React.FC = () => {
         )}
       </div>
 
-      <div id="chat-input-container">
-        <ChatInput
-          onSendMessage={handleSendMessage}
-          onStopStreaming={stopStreaming}
-          isStreaming={isStreaming}
-          isCentered={currentMessages.length === 0}
-        />
-      </div>
+      <ChatInput
+        onSendMessage={handleSendMessage}
+        onStopStreaming={stopStreaming}
+        isStreaming={isStreaming}
+        isCentered={currentMessages.length === 0}
+        selectedMode={selectedMode}
+        onSelectMode={handleSelectMode}
+      />
     </>
   );
 };

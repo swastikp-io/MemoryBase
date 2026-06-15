@@ -1,159 +1,154 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Search, X, MessageSquare, Calendar } from 'lucide-react';
 import { useSearchStore } from '../../store/search';
-import { useChatSearch } from '../../hooks/useChatSearch';
-import { useChat } from '../../context/ChatContext';
+import { useChatStore } from "../../store/chatStore";
+import MiniSearch from 'minisearch';
 
 export const ChatSearchModal: React.FC = () => {
-  const { isOpen, close, query, setQuery } = useSearchStore();
-  const { results, isSearching } = useChatSearch(query);
-  const { selectChat } = useChat();
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const { isOpen, close } = useSearchStore();
+  const { chats, loadChat } = useChatStore();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  
-  useEffect(() => {
-    const saved = localStorage.getItem('paralex-recent-searches');
-    if (saved) {
-      try { setRecentSearches(JSON.parse(saved)); } catch (e) {}
+  const miniSearch = useRef(new MiniSearch({
+    fields: ['title', 'content'],
+    storeFields: ['id', 'title', 'content', 'date', 'chatId'],
+    searchOptions: {
+      boost: { title: 2 },
+      fuzzy: 0.2
     }
-  }, []);
+  }));
 
-  const addRecentSearch = (q: string) => {
-    if (!q.trim()) return;
-    const newRecents = [q, ...recentSearches.filter(s => s !== q)].slice(0, 5);
-    setRecentSearches(newRecents);
-    localStorage.setItem('paralex-recent-searches', JSON.stringify(newRecents));
-  };
-
+  // Re-index when modal opens
   useEffect(() => {
     if (isOpen) {
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
+      setTimeout(() => inputRef.current?.focus(), 100);
+      
+      const docs: any[] = [];
+      chats.forEach(chat => {
+        docs.push({
+          id: `chat-${chat.id}`,
+          chatId: chat.id,
+          title: chat.title,
+          content: [] /* messages not on ChatSession */.map(m => m.content).join(' '),
+          date: chat.updatedAt
+        });
+      });
+      miniSearch.current.removeAll();
+      miniSearch.current.addAll(docs);
+    } else {
+      setQuery('');
+      setResults([]);
     }
-  }, [isOpen, query]);
+  }, [isOpen, chats]);
 
   useEffect(() => {
+    if (query.trim()) {
+      const searchResults = miniSearch.current.search(query);
+      setResults(searchResults);
+    } else {
+      setResults([]);
+    }
+  }, [query]);
+
+  // Keyboard shortcut Ctrl+K / Cmd+K
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        useSearchStore.getState().open();
+        useSearchStore.getState().toggle();
+      }
+      if (e.key === 'Escape') {
+        close();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [close]);
 
-  if (!isOpen) return null;
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      close();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!query && recentSearches.length > 0) {
-        setSelectedIndex(prev => Math.min(prev + 1, recentSearches.length - 1));
-      } else {
-        setSelectedIndex(prev => Math.min(prev + 1, results.length - 1));
-      }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex(prev => Math.max(prev - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (!query && recentSearches.length > 0) {
-        setQuery(recentSearches[selectedIndex]);
-      } else if (results.length > 0 && results[selectedIndex]) {
-        addRecentSearch(query);
-        selectChat(results[selectedIndex].chatId);
-        close();
-      }
-    }
-  };
-
-  const handleSelectResult = (chatId: string) => {
-    addRecentSearch(query);
-    selectChat(chatId);
+  const handleSelect = (chatId: string) => {
+    loadChat(chatId);
     close();
   };
 
-  const highlightText = (text: string, highlight: string) => {
-    if (!highlight.trim()) return text;
-    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
-    return (
-      <span>
-        {parts.map((part, i) => 
-          part.toLowerCase() === highlight.toLowerCase() 
-            ? <span key={i} className="text-text-primary font-medium bg-[var(--accentMuted)] rounded px-0.5">{part}</span> 
-            : part
-        )}
-      </span>
-    );
-  };
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm" onClick={close}>
-      <div 
-        className="w-full max-w-[640px] bg-[var(--surface)] border border-[var(--border)] shadow-2xl rounded-2xl overflow-hidden flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center px-5 py-4 border-b border-[var(--border)]">
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search chats..."
-            className="flex-1 bg-transparent border-none outline-none text-[var(--textPrimary)] text-[16px] placeholder-[var(--textSecondary)]"
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[10vh] sm:pt-[20vh] px-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={close}
           />
-        </div>
-
-        <div className="max-h-[50vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--border)]">
-          {!query ? (
-            recentSearches.length > 0 ? (
-              <div className="py-2">
-                <div className="px-5 py-2 text-[11px] font-semibold text-[var(--textSecondary)] uppercase tracking-wider">
-                  Recent Searches
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="relative w-full max-w-2xl bg-[var(--background)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          >
+            <div className="flex items-center px-4 py-3 border-b border-[var(--border)]">
+              <Search className="w-5 h-5 text-text-secondary mr-3" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search messages, chats, and knowledge..."
+                className="flex-1 bg-transparent border-none outline-none text-text-primary placeholder:text-text-secondary/50 text-lg"
+              />
+              <button onClick={close} className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="max-h-[60vh] overflow-y-auto p-2 scrollbar-thin">
+              {query.trim() === '' ? (
+                <div className="p-8 text-center text-text-secondary">
+                  <MessageSquare className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">Start typing to search your conversations</p>
                 </div>
-                {recentSearches.map((search, idx) => (
-                  <div
-                    key={search}
-                    onClick={() => setQuery(search)}
-                    className={`px-5 py-3 cursor-pointer text-[var(--textPrimary)] text-[14px] ${idx === selectedIndex ? 'bg-[var(--surfaceSecondary)]' : 'hover:bg-[var(--surfaceSecondary)]'}`}
-                  >
-                    {search}
-                  </div>
-                ))}
-              </div>
-            ) : null
-          ) : (
-            results.length > 0 ? (
-              <div className="py-2">
-                {results.map((res, idx) => (
-                  <div
-                    key={res.chatId}
-                    onClick={() => handleSelectResult(res.chatId)}
-                    className={`px-5 py-3 cursor-pointer border-l-2 ${idx === selectedIndex ? 'bg-[var(--surfaceSecondary)] border-[var(--accent)]' : 'border-transparent hover:bg-[var(--surfaceSecondary)]'}`}
-                  >
-                    <div className="text-[var(--textPrimary)] font-medium text-[14px] mb-1">
-                      {highlightText(res.title, query)}
-                    </div>
-                    {res.snippet && (
-                      <div className="text-[var(--textSecondary)] text-[13px] leading-relaxed line-clamp-1">
-                        {highlightText(res.snippet, query)}
+              ) : results.length === 0 ? (
+                <div className="p-8 text-center text-text-secondary">
+                  <p className="text-sm">No results found for "{query}"</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {results.map((result) => (
+                    <button
+                      key={result.id}
+                      onClick={() => handleSelect(result.chatId)}
+                      className="flex flex-col items-start gap-1 p-3 hover:bg-[var(--surfaceSecondary)] rounded-xl transition-colors text-left w-full group"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="font-medium text-text-primary">{result.title}</span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(result.date).toLocaleDateString()}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <span className="text-sm text-text-secondary line-clamp-2">
+                        {result.content}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="px-4 py-2 border-t border-[var(--border)] flex items-center justify-between text-[11px] text-text-secondary bg-[var(--surface)]">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1"><kbd className="bg-[var(--surfaceSecondary)] px-1.5 py-0.5 rounded border border-[var(--border)]">↑↓</kbd> to navigate</span>
+                <span className="flex items-center gap-1"><kbd className="bg-[var(--surfaceSecondary)] px-1.5 py-0.5 rounded border border-[var(--border)]">Enter</kbd> to select</span>
+                <span className="flex items-center gap-1"><kbd className="bg-[var(--surfaceSecondary)] px-1.5 py-0.5 rounded border border-[var(--border)]">Esc</kbd> to close</span>
               </div>
-            ) : (
-              <div className="py-8 text-center text-[var(--textSecondary)] text-[14px]">
-                No chats found
-              </div>
-            )
-          )}
+            </div>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };

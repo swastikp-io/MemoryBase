@@ -26,7 +26,7 @@ Apply the following user personalization settings:`;
   }
 
   if (context.memories && context.memories.length > 0) {
-    prompt += `\n\n# User Memories (Retrieved Facts & Preferences)\nThe following context summarizes past facts the user has shared. Use these to tailor your response accurately:\n`;
+    prompt += `\n\n# User Memories\n`;
     context.memories.forEach(m => {
       prompt += `- ${m}\n`;
     });

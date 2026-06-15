@@ -10,7 +10,7 @@ View your app in AI Studio: https://ai.studio/apps/a859ce1a-741c-4340-a0a1-a32cf
 
 ## Project Documentation
 
-- [Paralex Operational Flow](docs/PARALEX_OPERATIONAL_FLOW.md)
+- [MemoryBase Operational Flow](docs/PARALEX_OPERATIONAL_FLOW.md)
 
 ## Run Locally
 

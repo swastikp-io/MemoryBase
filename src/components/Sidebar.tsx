@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { useChat } from '../context/ChatContext';
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, Search, LayoutGrid, Sparkles, Settings as SettingsIcon, SquarePen, X, MoreHorizontal, Pencil, Command, Menu } from 'lucide-react';
+import { useChatStore } from '../store/chatStore';
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, Search, LayoutGrid, Sparkles, Settings as SettingsIcon, SquarePen, X, MoreHorizontal, Pencil, Trash2, Command, Menu, LogOut } from 'lucide-react';
+import { DeleteChatModal } from './DeleteChatModal';
 import { useSettingsStore } from '../store/settings';
+import { useAuthStore } from '../store/auth';
+import { useSearchStore } from '../store/search';
 import { useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchStore } from '../store/search';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -13,8 +15,9 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenSettings }) => {
-  const { chats, currentChatId, selectChat, createNewChat, updateChatTitle } = useChat();
+  const { chats, activeChatId, loadChat, renameChat } = useChatStore();
   const settings = useSettingsStore();
+  const { revokeAccess } = useAuthStore();
   const searchStore = useSearchStore();
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -22,6 +25,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
   const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { deleteChat } = useChatStore();
   const menuRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -36,9 +42,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
 
   const handleRenameSubmit = (chatId: string) => {
     if (renameValue.trim()) {
-      updateChatTitle(chatId, renameValue.trim(), false, true);
+      renameChat(chatId, renameValue.trim());
     }
     setRenamingId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deletingId) {
+      setIsDeleting(true);
+      try {
+        await deleteChat(deletingId);
+      } catch (err) {
+        alert('Failed to delete conversation');
+      } finally {
+        setIsDeleting(false);
+        setDeletingId(null);
+      }
+    }
   };
 
   const userInitial = settings.profile.displayName ? settings.profile.displayName.charAt(0).toUpperCase() : 'U';
@@ -73,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
           {/* Navigation / Actions */}
           <div className="px-3 pt-4 flex flex-col gap-2">
             <button
-              onClick={createNewChat}
+              onClick={() => useChatStore.setState({ activeChatId: null, messages: [] })}
               className="w-full px-4 py-2.5 bg-[var(--surface)] hover:bg-[var(--surfaceSecondary)] border border-[var(--border)] rounded-full text-text-primary font-medium text-[13px] transition-colors text-left"
             >
               New Chat
@@ -120,9 +140,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                     </div>
                   ) : (
                     <button
-                      onClick={() => selectChat(chat.id)}
+                      onClick={() => loadChat(chat.id)}
                       className={`w-full text-left px-4 py-2 rounded-full text-[13px] truncate transition-colors flex items-center gap-3 ${
-                        currentChatId === chat.id
+                        activeChatId === chat.id
                           ? 'bg-[var(--surfaceSecondary)] text-text-primary font-medium'
                           : 'text-text-secondary hover:bg-[var(--surface)] hover:text-text-primary font-medium'
                       }`}
@@ -132,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                   )}
                   
                   {!isRenaming && (
-                    <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity ${(activeMenuId === chat.id || currentChatId === chat.id) ? 'opacity-100' : ''}`}>
+                    <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity ${(activeMenuId === chat.id || activeChatId === chat.id) ? 'opacity-100' : ''}`}>
                       <div className="relative">
                         <button 
                           onClick={(e) => {
@@ -146,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                             }
                           }}
                           className={`p-1.5 rounded-full text-text-secondary transition-colors ${
-                            currentChatId === chat.id 
+                            activeChatId === chat.id 
                               ? 'hover:bg-[var(--surfaceSecondary)] hover:text-text-primary' 
                               : 'hover:bg-[var(--surface)] hover:text-text-primary'
                           }`}
@@ -172,6 +192,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                               <Pencil className="w-3.5 h-3.5" />
                               Rename
                             </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingId(chat.id);
+                                setActiveMenuId(null);
+                              }}
+                              className="flex items-center gap-3 w-full px-3 py-2 text-[13px] text-red-500 hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Delete
+                            </button>
                           </div>,
                           document.body
                         )}
@@ -192,12 +223,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                 </div>
                 <span className="text-[14px] font-medium text-text-primary">{userName}</span>
               </div>
-              <button
-                onClick={onOpenSettings}
-                className="p-2 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-full transition-colors mr-1"
-              >
-                <SettingsIcon className="w-[20px] h-[20px]" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={onOpenSettings}
+                  className="p-2 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-full transition-colors"
+                  title="Settings"
+                >
+                  <SettingsIcon className="w-[18px] h-[18px]" />
+                </button>
+                <button
+                  onClick={revokeAccess}
+                  className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors mr-1"
+                  title="Logout"
+                >
+                  <LogOut className="w-[18px] h-[18px]" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -215,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
           {/* Actions */}
           <div className="flex flex-col gap-4 w-full items-center">
             <button
-              onClick={createNewChat}
+              onClick={() => useChatStore.setState({ activeChatId: null, messages: [] })}
               className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
               title="New Chat"
             >
@@ -223,10 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
             </button>
 
             <button
-              onClick={() => {
-                // If it's a mobile device or just opening it directly
-                searchStore.open();
-              }}
+              onClick={() => searchStore.open()}
               className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
               title="Search"
             >
@@ -254,9 +292,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                 {userName}
               </div>
             </div>
+            <button
+              onClick={revokeAccess}
+              className="p-2 rounded-full hover:bg-red-500/10 transition-colors text-text-secondary hover:text-red-500"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}
+
+      <DeleteChatModal
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };

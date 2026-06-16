@@ -34,7 +34,7 @@ export interface ResearchSession {
 
 export interface Message {
   id: string;
-  role: "user" | "model" | "system";
+  role: "user" | "model" | "system" | "assistant";
   content: string;
   createdAt?: string;
   images?: string[];
@@ -75,139 +75,77 @@ interface ChatStore {
   clearState: () => void;
 }
 
-/**
- * apiFetch — Make requests to the Express backend.
- */
-const apiFetch = async (url: string, options: RequestInit = {}) => {
-  const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  const res = await fetch(url, { ...options, headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-};
-
 export const useChatStore = create<ChatStore>((set, get) => ({
   chats: [],
   activeChatId: null,
   messages: [],
   isLoadingChats: false,
   isLoadingMessages: false,
-  webSearchEnabled: typeof window !== 'undefined' ? localStorage.getItem('webSearchEnabled') === 'true' : false,
+  webSearchEnabled: false,
 
-  toggleWebSearch: () => set((state) => {
-    const newState = !state.webSearchEnabled;
-    if (typeof window !== 'undefined') localStorage.setItem('webSearchEnabled', String(newState));
-    return { webSearchEnabled: newState };
-  }),
+  toggleWebSearch: () => set((state) => ({ webSearchEnabled: !state.webSearchEnabled })),
 
-  setWebSearch: (enabled) => set(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('webSearchEnabled', String(enabled));
-    return { webSearchEnabled: enabled };
-  }),
+  setWebSearch: (enabled) => set(() => ({ webSearchEnabled: enabled })),
 
   loadChats: async () => {
-    set({ isLoadingChats: true });
-    try {
-      const data = await apiFetch('/api/chats');
-      set({ chats: data, isLoadingChats: false });
-    } catch (e) {
-      console.error('Failed to load chats', e);
-      set({ isLoadingChats: false });
-    }
+    // No-op for volatile state
+    set({ isLoadingChats: false });
   },
 
   loadChat: async (id: string) => {
-    set({ activeChatId: id, isLoadingMessages: true, messages: [] });
-    try {
-      const msgs = await apiFetch(`/api/chats/${id}/messages`);
-      set({ messages: msgs, isLoadingMessages: false });
-    } catch (e) {
-      console.error('Failed to load messages', e);
-      set({ isLoadingMessages: false });
+    // We don't fetch from backend. Keep current messages if activeChatId matches, otherwise reset.
+    if (get().activeChatId !== id) {
+      set({ activeChatId: id, messages: [] });
     }
   },
 
   createChat: async (mode = 'standard') => {
-    try {
-      const data = await apiFetch('/api/chats', {
-        method: 'POST',
-        body: JSON.stringify({ title: 'New Chat', model: mode })
-      });
-      await get().loadChats();
-      set({ activeChatId: data.chatId, messages: [] });
-      return data.chatId;
-    } catch (e) {
-      console.error('Failed to create chat', e);
-      return null;
-    }
+    const newId = crypto.randomUUID();
+    const newChat: ChatSession = {
+      id: newId,
+      title: 'New Chat',
+      updatedAt: new Date().toISOString(),
+      mode
+    };
+    set((state) => ({ 
+      chats: [newChat, ...state.chats],
+      activeChatId: newId,
+      messages: []
+    }));
+    return newId;
   },
 
   deleteChat: async (id: string) => {
-    const previousChats = get().chats;
-    const previousActiveId = get().activeChatId;
-    
-    // Optimistic UI update
-    const newChats = previousChats.filter(c => c.id !== id);
-    set({ chats: newChats });
-    
-    if (previousActiveId === id) {
-      if (newChats.length > 0) {
-        // Optimistically load the next chat
-        get().loadChat(newChats[0].id);
-      } else {
-        set({ activeChatId: null, messages: [] });
-      }
-    }
-
-    try {
-      await apiFetch(`/api/chats/${id}`, { method: 'DELETE' });
-      // Keep optimistic update, just refetch to ensure sync
-      await get().loadChats();
-    } catch (e) {
-      console.error('Failed to delete chat', e);
-      // Revert optimistic update
-      set({ chats: previousChats });
-      if (previousActiveId === id) {
-        get().loadChat(previousActiveId);
-      }
-      throw e;
-    }
+    set((state) => {
+      const newChats = state.chats.filter((c) => c.id !== id);
+      const isDeletingActive = state.activeChatId === id;
+      return {
+        chats: newChats,
+        activeChatId: isDeletingActive ? (newChats.length > 0 ? newChats[0].id : null) : state.activeChatId,
+        messages: isDeletingActive && newChats.length === 0 ? [] : state.messages
+      };
+    });
   },
 
   renameChat: async (id: string, title: string) => {
-    try {
-      await apiFetch(`/api/chats/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ title })
-      });
-      await get().loadChats();
-    } catch (e) {
-      console.error('Failed to rename chat', e);
-    }
+    set((state) => ({
+      chats: state.chats.map((c) => (c.id === id ? { ...c, title } : c))
+    }));
   },
 
   updateChatMode: async (id: string, mode: string) => {
-    try {
-      await apiFetch(`/api/chats/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ mode })
-      });
-      await get().loadChats();
-    } catch (e) {
-      console.error('Failed to update chat mode', e);
-    }
+    set((state) => ({
+      chats: state.chats.map((c) => (c.id === id ? { ...c, mode } : c))
+    }));
   },
 
   addMessageOptimistic: (msg: Message) => {
-    set(state => ({ messages: [...state.messages, msg] }));
+    set((state) => ({ messages: [...state.messages, msg] }));
   },
 
   updateMessageContent: (messageId, content, append = false, isSearchingWeb, reasoning, research, sources) => {
-    set(state => ({
-      messages: state.messages.map(m => 
+    set((state) => ({
+      messages: state.messages.map((m) =>
         m.id === messageId ? {
           ...m,
           content: append ? m.content + content : content,
@@ -221,16 +159,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   saveMessage: async (chatId, role, content, webSearchUsed) => {
-    try {
-      const data = await apiFetch('/api/messages', {
-        method: 'POST',
-        body: JSON.stringify({ chatId, role, content, webSearchUsed })
-      });
-      return data.messageId;
-    } catch (e) {
-      console.error('Failed to save message', e);
-      return null;
-    }
+    // Generate an ID instantly since it's volatile
+    const messageId = crypto.randomUUID();
+    return messageId;
   },
 
   clearState: () => {

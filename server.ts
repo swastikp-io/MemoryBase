@@ -4,8 +4,7 @@ import { createServer as createViteServer } from "vite";
 import OpenAI, { toFile } from "openai";
 import dotenv from "dotenv";
 import { ReasoningController } from "./server/orchestrator/reasoningController.ts";
-import { PersonalizationService } from "./server/personalization/personalizationService.ts";
-import { chatsRouter, messagesRouter } from "./server/api/chats.ts";
+
 import { resolveModel } from "./src/lib/models/resolver.ts";
 
 
@@ -24,13 +23,7 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 export function setupRoutes() {
-  const localAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    (req as any).user = { id: "local-user", email: "local@example.com", name: "Local User" };
-    next();
-  };
 
-  app.use("/api/chats", localAuth, chatsRouter);
-  app.use("/api/messages", localAuth, messagesRouter);
 
   // API route for chat message streaming
   app.post("/api/chat", async (req, res) => {
@@ -161,16 +154,7 @@ export function setupRoutes() {
   });
 
 
-  // Settings API Routes for Personalization
-  app.get("/api/settings/personalization/:userId", (req, res) => {
-    const settings = PersonalizationService.getSettings(req.params.userId);
-    res.json(settings || {});
-  });
 
-  app.post("/api/settings/personalization/:userId", (req, res) => {
-    const updated = PersonalizationService.updateSettings(req.params.userId, req.body);
-    res.json(updated);
-  });
 
 
 }
@@ -201,7 +185,7 @@ async function startServer() {
 }
 
 // Only run the server if this file is executed directly (not imported), or if it's explicitly started
-const isLambda = !!process.env.LAMBDA_TASK_ROOT;
-if (!isLambda) {
+const isServerless = !!process.env.LAMBDA_TASK_ROOT || !!process.env.VERCEL;
+if (!isServerless) {
   startServer();
 }

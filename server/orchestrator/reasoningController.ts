@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { injectContext } from './contextInjector.ts';
 import { withRetriesAndFallback } from '../utils/llmValidation.ts';
-import { ProviderLogger } from '../utils/providerLogger.ts';
+const ProviderLogger = { log: (x: any) => {} };
 import { PersonalizationService } from '../personalization/personalizationService.ts';
 import { getSystemPrompt, getPlanPrompt, critiquePrompt, improvePrompt } from './prompts/router.ts';
 import { searchWeb, buildSearchContext } from '../services/websearch.ts';

@@ -3,8 +3,6 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import OpenAI, { toFile } from "openai";
 import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
-import { requireAuth } from "./server/middleware/auth.ts";
 import { ReasoningController } from "./server/orchestrator/reasoningController.ts";
 import { PersonalizationService } from "./server/personalization/personalizationService.ts";
 import { chatsRouter, messagesRouter } from "./server/api/chats.ts";
@@ -19,48 +17,26 @@ const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY || "dummy_key",
 });
 
-const supabaseAuth = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.VITE_SUPABASE_ANON_KEY || '',
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+
 
 export const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 export function setupRoutes() {
-  async function authenticateRequest(req: express.Request, res: express.Response) {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-      res.status(401).json({ error: "Unauthorized: Missing or invalid token" });
-      return null;
-    }
-    try {
-      const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
-      if (error || !user) {
-        res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
-        return null;
-      }
-      const userData = { id: user.id, email: user.email, name: user.user_metadata?.full_name || '' };
-      (req as any).user = userData;
-      return { accessToken: token, user: userData };
-    } catch (e) {
-      res.status(401).json({ error: "Unauthorized: Token verification failed" });
-      return null;
-    }
-  }
+  const localAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    (req as any).user = { id: "local-user", email: "local@example.com", name: "Local User" };
+    next();
+  };
 
-  app.use("/api/chats", requireAuth, chatsRouter);
-  app.use("/api/messages", requireAuth, messagesRouter);
+  app.use("/api/chats", localAuth, chatsRouter);
+  app.use("/api/messages", localAuth, messagesRouter);
 
   // API route for chat message streaming
   app.post("/api/chat", async (req, res) => {
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
-
+    const userId = "local-user";
+    const accessToken = "mock-token";
     const { messages, mode, webSearch } = req.body;
-    const userId = auth.user.id;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Messages array is required" });
@@ -76,7 +52,7 @@ export function setupRoutes() {
 
       const currentOpenAI = openai;
 
-      await ReasoningController.execute(currentOpenAI, userId, auth.accessToken, messages, mode, Boolean(webSearch), res);
+      await ReasoningController.execute(currentOpenAI, userId, accessToken, messages, mode, Boolean(webSearch), res);
       res.write("data: [DONE]\n\n");
       res.end();
 
@@ -99,8 +75,6 @@ export function setupRoutes() {
   });
 
   app.post("/api/chat/title", async (req, res) => {
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
 
     const { firstMessage, mode } = req.body;
     if (!firstMessage) {
@@ -146,42 +120,9 @@ export function setupRoutes() {
   });
 
 
-  app.get("/api/debug/dashboard", async (req, res) => {
-    // In a real app, you'd want admin role check here.
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
 
-    try {
-      const { data: logs, error } = await supabaseAuth
-        .from('provider_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) {
-        return res.status(500).json({ error: error.message });
-      }
-
-      const total = logs.length;
-      const successCount = logs.filter(l => l.success).length;
-      const failureCount = total - successCount;
-      const avgLatency = total > 0 ? logs.reduce((acc, l) => acc + l.latency_ms, 0) / total : 0;
-
-      res.json({
-        totalRequests: total,
-        successRate: total > 0 ? (successCount / total) * 100 : 0,
-        failureCount,
-        avgLatencyMs: Math.round(avgLatency),
-        recentLogs: logs.slice(0, 20)
-      });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
 
   app.post("/api/canvas/edit", async (req, res) => {
-    const auth = await authenticateRequest(req, res);
-    if (!auth) return;
 
     const { selectedText, instruction, model } = req.body;
     if (!selectedText || !instruction) {

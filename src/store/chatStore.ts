@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { useAuthStore } from './auth';
 
 export interface ReasoningPhase {
   status: string;
@@ -77,15 +76,10 @@ interface ChatStore {
 }
 
 /**
- * fetchWithAuth — Uses the Supabase access token from the auth store
- * to authenticate requests to the Express backend.
+ * apiFetch — Make requests to the Express backend.
  */
-const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const token = useAuthStore.getState().token;
-  if (!token) throw new Error('No auth token available');
-  
+const apiFetch = async (url: string, options: RequestInit = {}) => {
   const headers = new Headers(options.headers || {});
-  headers.set('Authorization', `Bearer ${token}`);
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -117,7 +111,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   loadChats: async () => {
     set({ isLoadingChats: true });
     try {
-      const data = await fetchWithAuth('/api/chats');
+      const data = await apiFetch('/api/chats');
       set({ chats: data, isLoadingChats: false });
     } catch (e) {
       console.error('Failed to load chats', e);
@@ -128,7 +122,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   loadChat: async (id: string) => {
     set({ activeChatId: id, isLoadingMessages: true, messages: [] });
     try {
-      const msgs = await fetchWithAuth(`/api/chats/${id}/messages`);
+      const msgs = await apiFetch(`/api/chats/${id}/messages`);
       set({ messages: msgs, isLoadingMessages: false });
     } catch (e) {
       console.error('Failed to load messages', e);
@@ -138,7 +132,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   createChat: async (mode = 'standard') => {
     try {
-      const data = await fetchWithAuth('/api/chats', {
+      const data = await apiFetch('/api/chats', {
         method: 'POST',
         body: JSON.stringify({ title: 'New Chat', model: mode })
       });
@@ -169,7 +163,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
 
     try {
-      await fetchWithAuth(`/api/chats/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/chats/${id}`, { method: 'DELETE' });
       // Keep optimistic update, just refetch to ensure sync
       await get().loadChats();
     } catch (e) {
@@ -185,7 +179,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   renameChat: async (id: string, title: string) => {
     try {
-      await fetchWithAuth(`/api/chats/${id}`, {
+      await apiFetch(`/api/chats/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ title })
       });
@@ -197,7 +191,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   updateChatMode: async (id: string, mode: string) => {
     try {
-      await fetchWithAuth(`/api/chats/${id}`, {
+      await apiFetch(`/api/chats/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ mode })
       });
@@ -228,7 +222,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   saveMessage: async (chatId, role, content, webSearchUsed) => {
     try {
-      const data = await fetchWithAuth('/api/messages', {
+      const data = await apiFetch('/api/messages', {
         method: 'POST',
         body: JSON.stringify({ chatId, role, content, webSearchUsed })
       });

@@ -3,7 +3,7 @@ import { useChatStore } from '../store/chatStore';
 import { Plus, MessageSquare, PanelLeftClose, PanelLeft, Search, LayoutGrid, Sparkles, Settings as SettingsIcon, SquarePen, X, MoreHorizontal, Pencil, Trash2, Command, Menu, LogOut } from 'lucide-react';
 import { DeleteChatModal } from './DeleteChatModal';
 import { useSettingsStore } from '../store/settings';
-import { useAuthStore } from '../store/auth';
+
 import { useSearchStore } from '../store/search';
 import { useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -17,7 +17,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenSettings }) => {
   const { chats, activeChatId, loadChat, renameChat } = useChatStore();
   const settings = useSettingsStore();
-  const { revokeAccess } = useAuthStore();
+
   const searchStore = useSearchStore();
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -231,13 +231,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                 >
                   <SettingsIcon className="w-[18px] h-[18px]" />
                 </button>
-                <button
-                  onClick={revokeAccess}
-                  className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors mr-1"
-                  title="Logout"
-                >
-                  <LogOut className="w-[18px] h-[18px]" />
-                </button>
+
               </div>
             </div>
           </div>
@@ -292,13 +286,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                 {userName}
               </div>
             </div>
-            <button
-              onClick={revokeAccess}
-              className="p-2 rounded-full hover:bg-red-500/10 transition-colors text-text-secondary hover:text-red-500"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+
           </div>
         </div>
       )}

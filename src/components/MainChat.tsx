@@ -5,14 +5,14 @@ import { ChatMessage } from "./ChatMessage";
 import { Message } from "../store/chatStore";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settings";
-import { useAuthStore } from "../store/auth";
+
 import { DocumentOutline } from "./markdown/DocumentOutline";
 import { ChatMode } from "../lib/models/modes";
 
 export const MainChat: React.FC = () => {
   const { chats, activeChatId, messages: currentMessages, loadChat, createChat, saveMessage, addMessageOptimistic, updateMessageContent, renameChat, updateChatMode } = useChatStore();
   const settings = useSettingsStore();
-  const { token } = useAuthStore();
+  const token = "mock-token";
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedMode, setSelectedMode] = useState<ChatMode>('standard');
 

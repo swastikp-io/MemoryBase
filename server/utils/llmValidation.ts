@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 
-import { ProviderLogger } from './providerLogger.ts';
+const ProviderLogger = { log: (x: any) => {} };
 
 export interface ValidationResult {
   valid: boolean;

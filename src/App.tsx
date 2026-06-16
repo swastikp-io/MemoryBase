@@ -2,9 +2,7 @@ import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { MainChat } from "./components/MainChat";
-import { ProtectedRoute } from "./components/ProtectedRoute";
 import { useChatStore } from "./store/chatStore";
-import { useAuthStore } from "./store/auth";
 import { LandingPage } from "./pages/LandingPage";
 
 
@@ -40,7 +38,7 @@ function AnimatedRoutes() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<LandingPage />} />
         <Route path="/docs" element={<DocsPage />} />
-        <Route path="/chat" element={<ProtectedRoute><ChatApp /></ProtectedRoute>} />
+        <Route path="/chat" element={<ChatApp />} />
 
       </Routes>
     </AnimatePresence>
@@ -52,11 +50,6 @@ import { useThemeValidator } from "./hooks/useThemeValidator";
 export default function App() {
   useThemeValidator();
 
-  // Initialize Supabase auth store subscription
-  useEffect(() => {
-    const cleanup = useAuthStore.getState().initialize();
-    return cleanup;
-  }, []);
 
   return (
     <BrowserRouter>

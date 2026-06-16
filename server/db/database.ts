@@ -6,8 +6,7 @@ const db = new Database(dbPath);
 
 // Initialize database
 export function initDb() {
-  // Disable FK enforcement — user IDs now come from Supabase Auth,
-  // not a local users table.
+  // Disable FK enforcement
   db.pragma('foreign_keys = OFF');
 
   db.exec(`

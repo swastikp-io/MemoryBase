@@ -3,16 +3,13 @@ import { motion } from "motion/react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Command, Sun, Moon } from "lucide-react";
 import { useSettingsStore } from "../store/settings";
-import { useAuthStore } from "../store/auth";
-import { AuthModal } from "../components/AuthModal";
+
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { appearance, updateAppearance } = useSettingsStore();
-  const { hasAccess } = useAuthStore();
   const themeMode = appearance?.themeMode || 'light';
-  
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
 
   const toggleTheme = () => {
     updateAppearance({ themeMode: themeMode === 'light' ? 'dark' : 'light' });
@@ -20,11 +17,7 @@ export const LandingPage: React.FC = () => {
 
   const handleTryMemoryBase = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (hasAccess) {
-      navigate('/chat');
-    } else {
-      setIsInviteModalOpen(true);
-    }
+    navigate('/chat');
   };
 
   return (
@@ -120,14 +113,7 @@ export const LandingPage: React.FC = () => {
         </div>
       </footer>
 
-      <AuthModal
-        isOpen={isInviteModalOpen}
-        onClose={() => setIsInviteModalOpen(false)}
-        onSuccess={() => {
-          setIsInviteModalOpen(false);
-          navigate('/chat');
-        }}
-      />
+
     </motion.div>
   );
 };

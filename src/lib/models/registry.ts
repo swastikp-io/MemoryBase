@@ -1,6 +1,6 @@
 export const MODEL_REGISTRY = {
   standard: {
-    id: "openrouter/free",
+    id: "nvidia/nemotron-3-ultra-550b-a55b:free",
     label: "Standard"
   },
   research: {

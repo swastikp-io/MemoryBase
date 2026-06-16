@@ -77,9 +77,13 @@ interface ChatStore {
   clearState: () => void;
 }
 
+/**
+ * fetchWithAuth — Uses the Supabase access token from the auth store
+ * to authenticate requests to the Express backend.
+ */
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const token = useAuthStore.getState().token;
-  if (!token) throw new Error('No token');
+  if (!token) throw new Error('No auth token available');
   
   const headers = new Headers(options.headers || {});
   headers.set('Authorization', `Bearer ${token}`);

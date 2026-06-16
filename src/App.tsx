@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { MainChat } from "./components/MainChat";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { useChatStore } from "./store/chatStore";
+import { useAuthStore } from "./store/auth";
 import { LandingPage } from "./pages/LandingPage";
 
 
@@ -50,6 +51,12 @@ import { useThemeValidator } from "./hooks/useThemeValidator";
 
 export default function App() {
   useThemeValidator();
+
+  // Initialize Supabase auth store subscription
+  useEffect(() => {
+    const cleanup = useAuthStore.getState().initialize();
+    return cleanup;
+  }, []);
 
   return (
     <BrowserRouter>

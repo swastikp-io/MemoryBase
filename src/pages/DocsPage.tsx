@@ -220,7 +220,7 @@ export const DocsPage: React.FC = () => {
                 <ArchitectureCard 
                   title="Backend" 
                   icon={Database} 
-                  items={["Supabase", "Authentication", "Real-time sync", "Secure state storage"]} 
+                  items={["SQLite", "Custom JWT Authentication", "Local State Storage"]} 
                 />
                 <ArchitectureCard 
                   title="Local Env" 

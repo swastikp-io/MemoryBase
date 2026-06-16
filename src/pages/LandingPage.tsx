@@ -9,7 +9,7 @@ import { AuthModal } from "../components/AuthModal";
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { appearance, updateAppearance } = useSettingsStore();
-  const { hasAccess, grantAccess } = useAuthStore();
+  const { hasAccess } = useAuthStore();
   const themeMode = appearance?.themeMode || 'light';
   
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);

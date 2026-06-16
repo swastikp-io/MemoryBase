@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Loader2, ArrowRight } from 'lucide-react';
-import { useAuthStore } from '../store/auth';
+import {
+  signUpWithEmail,
+  signInWithEmail,
+  signInWithGitHub,
+} from '../lib/auth-service';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,8 +20,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const grantAccess = useAuthStore(state => state.grantAccess);
+  const [isGitHubLoading, setIsGitHubLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,27 +32,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         throw new Error('Please fill in all fields.');
       }
 
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const body = isLogin ? { email, password } : { fullName, email, password };
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed.');
+      if (isLogin) {
+        const { error } = await signInWithEmail(email, password);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await signUpWithEmail(email, password, fullName);
+        if (error) throw new Error(error.message);
       }
 
-      grantAccess({ id: data.user.id, fullName: data.user.fullName, email }, data.token);
+      // Auth state change listener in the auth store will handle the rest
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'Authentication failed.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGitHubLogin = async () => {
+    setError(null);
+    setIsGitHubLoading(true);
+
+    try {
+      const { error } = await signInWithGitHub();
+      if (error) throw new Error(error.message);
+      // OAuth flow will redirect to GitHub and back
+    } catch (err: any) {
+      setError(err.message || 'GitHub login failed.');
+      setIsGitHubLoading(false);
     }
   };
 
@@ -105,6 +115,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   </div>
                 )}
 
+                {/* GitHub OAuth Button */}
+                <button
+                  type="button"
+                  onClick={handleGitHubLogin}
+                  disabled={isGitHubLoading || isLoading}
+                  className="w-full bg-[#24292f] hover:bg-[#1b1f23] disabled:opacity-50 text-white h-12 rounded-full font-medium flex items-center justify-center gap-3 transition-colors"
+                >
+                  {isGitHubLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                      </svg>
+                      Continue with GitHub
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-px bg-[var(--border)]"></div>
+                  <span className="text-xs text-[var(--textSecondary)] font-medium">or</span>
+                  <div className="flex-1 h-px bg-[var(--border)]"></div>
+                </div>
+
                 {!isLogin && (
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="fullName" className="text-sm font-medium text-[var(--textSecondary)]">Full Name</label>
@@ -148,7 +183,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || isGitHubLoading}
                   className="mt-2 w-full bg-[var(--textPrimary)] text-[var(--background)] hover:opacity-90 disabled:opacity-50 h-12 rounded-full font-medium flex items-center justify-center gap-2 transition-opacity"
                 >
                   {isLoading ? (

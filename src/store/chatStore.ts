@@ -40,7 +40,6 @@ export interface Message {
   createdAt?: string;
   images?: string[];
   isSearchingWeb?: boolean;
-  memoryTraceId?: string;
   reasoning?: ReasoningPhase;
   research?: ResearchSession;
   webSearchUsed?: boolean;
@@ -73,7 +72,7 @@ interface ChatStore {
   updateChatMode: (id: string, mode: string) => Promise<void>;
   addMessageOptimistic: (msg: Message) => void;
   saveMessage: (chatId: string, role: string, content: string, webSearchUsed?: boolean) => Promise<string | null>;
-  updateMessageContent: (messageId: string, content: string, append?: boolean, isSearchingWeb?: boolean, memoryTraceId?: string, reasoning?: any, research?: any, sources?: any[]) => void;
+  updateMessageContent: (messageId: string, content: string, append?: boolean, isSearchingWeb?: boolean, reasoning?: any, research?: any, sources?: any[]) => void;
   clearState: () => void;
 }
 
@@ -212,14 +211,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set(state => ({ messages: [...state.messages, msg] }));
   },
 
-  updateMessageContent: (messageId, content, append = false, isSearchingWeb, memoryTraceId, reasoning, research, sources) => {
+  updateMessageContent: (messageId, content, append = false, isSearchingWeb, reasoning, research, sources) => {
     set(state => ({
       messages: state.messages.map(m => 
         m.id === messageId ? {
           ...m,
           content: append ? m.content + content : content,
           ...(isSearchingWeb !== undefined ? { isSearchingWeb } : {}),
-          ...(memoryTraceId !== undefined ? { memoryTraceId } : {}),
           ...(reasoning !== undefined ? { reasoning: { ...m.reasoning, ...reasoning } } : {}),
           ...(research !== undefined ? { research: { ...m.research, ...research } } : {}),
           ...(sources !== undefined ? { sources } : {})

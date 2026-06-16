@@ -8,9 +8,7 @@ import { requireAuth } from "./server/middleware/auth.ts";
 import { ReasoningController } from "./server/orchestrator/reasoningController.ts";
 import { PersonalizationService } from "./server/personalization/personalizationService.ts";
 import { chatsRouter, messagesRouter } from "./server/api/chats.ts";
-import { memoriesRouter } from "./server/api/memories.ts";
 import { resolveModel } from "./src/lib/models/resolver.ts";
-import { DebugTraceStore } from "./server/services/memory/debugTraceStore.ts";
 
 
 dotenv.config();
@@ -55,7 +53,6 @@ export function setupRoutes() {
 
   app.use("/api/chats", requireAuth, chatsRouter);
   app.use("/api/messages", requireAuth, messagesRouter);
-  app.use("/api/memories", requireAuth, memoriesRouter);
 
   // API route for chat message streaming
   app.post("/api/chat", async (req, res) => {
@@ -73,6 +70,9 @@ export function setupRoutes() {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
+      res.flushHeaders();
+      
+      res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
 
       const currentOpenAI = openai;
 
@@ -145,19 +145,38 @@ export function setupRoutes() {
     }
   });
 
-  app.get("/api/chat/debug/:requestId", async (req, res) => {
+
+  app.get("/api/debug/dashboard", async (req, res) => {
+    // In a real app, you'd want admin role check here.
     const auth = await authenticateRequest(req, res);
     if (!auth) return;
 
-    const trace = DebugTraceStore.get(req.params.requestId);
-    if (!trace) {
-      return res.status(404).json({ error: "Debug trace not found" });
-    }
-    if (trace.userId !== auth.user.id) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
+    try {
+      const { data: logs, error } = await supabaseAuth
+        .from('provider_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-    res.json(trace);
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      const total = logs.length;
+      const successCount = logs.filter(l => l.success).length;
+      const failureCount = total - successCount;
+      const avgLatency = total > 0 ? logs.reduce((acc, l) => acc + l.latency_ms, 0) / total : 0;
+
+      res.json({
+        totalRequests: total,
+        successRate: total > 0 ? (successCount / total) * 100 : 0,
+        failureCount,
+        avgLatencyMs: Math.round(avgLatency),
+        recentLogs: logs.slice(0, 20)
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post("/api/canvas/edit", async (req, res) => {
@@ -212,45 +231,13 @@ export function setupRoutes() {
     res.json(updated);
   });
 
-  // Settings API Routes (Mocked for architecture completeness)
-  let mockBackendSettings = {
-    memoryEnabled: true,
-    conversationContinuityEnabled: true,
-    autoMemoryDetectionEnabled: true
-  };
-
-  app.get("/api/settings/memory", (req, res) => {
-    res.json(mockBackendSettings);
-  });
-
-  app.patch("/api/settings/memory-toggle", (req, res) => {
-    mockBackendSettings.memoryEnabled = !!req.body.enabled;
-    res.json(mockBackendSettings);
-  });
-
-  app.patch("/api/settings/conversation-continuity", (req, res) => {
-    mockBackendSettings.conversationContinuityEnabled = !!req.body.enabled;
-    res.json(mockBackendSettings);
-  });
-
-  app.patch("/api/settings/auto-memory-detection", (req, res) => {
-    mockBackendSettings.autoMemoryDetectionEnabled = !!req.body.enabled;
-    res.json(mockBackendSettings);
-  });
-
-
 
 }
-
-import { MemoryJobs } from './server/services/memory/jobs.ts';
 
 async function startServer() {
 
   setupRoutes();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-
-  // Start background memory jobs
-  MemoryJobs.startSchedules();
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

@@ -2,8 +2,7 @@
  * Supabase Server Client — For server-side operations in the Express backend.
  * 
  * Uses the service_role key for admin-level access (bypasses RLS).
- * Only use this for server-side operations that need elevated privileges,
- * such as the memory extraction pipeline and background jobs.
+ * Only use this for server-side operations that need elevated privileges.
  * 
  * For user-scoped operations, use the user's access token with the anon client instead.
  */

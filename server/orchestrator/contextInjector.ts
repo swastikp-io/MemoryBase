@@ -1,5 +1,4 @@
 import { PersonalizationService } from '../personalization/personalizationService.ts';
-import { Memory } from '../types/memory.ts';
 
 interface MessageInput {
   role: string;
@@ -21,13 +20,10 @@ interface FormattedMessage {
 export async function injectContext(
   userId: string,
   accessToken: string,
-  messages: MessageInput[],
-  retrievedMemories: Memory[] = []
+  messages: MessageInput[]
 ): Promise<FormattedMessage[]> {
-  const memories = retrievedMemories.map(memory => ({ text: memory.content }));
-
   // Generate the dynamic system prompt with injected personalization
-  const systemInstruction = PersonalizationService.generatePersonalizedPrompt(userId, messages, memories);
+  const systemInstruction = PersonalizationService.generatePersonalizedPrompt(userId, messages, []);
 
   // Find if user sent a pre-baked system instruction (we will override or merge it)
   // Currently, the promptCompiler uses SUPER_PROMPT directly, so we just replace the system msg entirely.

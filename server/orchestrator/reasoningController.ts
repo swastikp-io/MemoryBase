@@ -1,14 +1,10 @@
 import OpenAI from 'openai';
 import { injectContext } from './contextInjector.ts';
+import { withRetriesAndFallback } from '../utils/llmValidation.ts';
+import { ProviderLogger } from '../utils/providerLogger.ts';
 import { PersonalizationService } from '../personalization/personalizationService.ts';
 import { getSystemPrompt, getPlanPrompt, critiquePrompt, improvePrompt } from './prompts/router.ts';
 import { searchWeb, buildSearchContext } from '../services/websearch.ts';
-import { HybridMemoryRetrieval } from '../services/memory/hybridMemoryRetrieval.ts';
-import { MemoryExtractor } from '../services/memory/memoryExtractor.ts';
-import { EpisodeRetrieval } from '../services/memory/episodeRetrieval.ts';
-import { EpisodeGenerator } from '../services/memory/episodeGenerator.ts';
-import { ContextBuilder } from '../services/memory/contextBuilder.ts';
-import { DebugTraceStore } from '../services/memory/debugTraceStore.ts';
 
 import { MODEL_BEHAVIORS } from '../../src/lib/model-behaviors.ts';
 import { resolveModel } from '../../src/lib/models/resolver.ts';
@@ -32,41 +28,10 @@ export class ReasoningController {
       userQuery = typeof latestUserMessage.content === 'string' ? latestUserMessage.content : JSON.stringify(latestUserMessage.content);
     }
 
-    const trace = DebugTraceStore.create(userId, userQuery);
-    res.write(`data: ${JSON.stringify({ memoryTraceId: trace.requestId })}\n\n`);
+    const requestId = Date.now().toString();
 
-    // Hybrid Memory Retrieval Layer: semantic, keyword fallback, recency fallback.
-    const hybridRetrieval = new HybridMemoryRetrieval();
-    const memoryResults = await hybridRetrieval.retrieve(userId, userQuery);
-    const relevantMemories = memoryResults.map(result => result.memory);
-
-    // Episodic Memory Retrieval Layer
-    const episodeRetrieval = new EpisodeRetrieval();
-    const relevantEpisodes = await episodeRetrieval.retrieveEpisodes(userId, userQuery);
-
-    // Inject previous conversation / context summarization with retrieved memories.
-    let formattedMessages = await injectContext(userId, accessToken, messages, relevantMemories) as any[];
-
-    const userQueryMessage = formattedMessages[formattedMessages.length - 1];
-    
-    // Context Building (consolidating recent history and memories)
-    const recentConversation = messages.slice(0, -1).slice(-5);
-    let consolidatedPrompt = '';
-    if (userQueryMessage && userQueryMessage.role === 'user') {
-      consolidatedPrompt = ContextBuilder.buildPrompt(relevantMemories, relevantEpisodes, recentConversation, userQuery);
-      
-      // Filter out old history since ContextBuilder includes it
-      const systemMsgs = formattedMessages.filter((m: any) => m.role === 'system');
-      formattedMessages = [
-        ...systemMsgs,
-        { role: 'user', content: consolidatedPrompt }
-      ];
-    }
-
-    DebugTraceStore.update(trace.requestId, {
-      retrievedMemories: DebugTraceStore.serializeRetrieval(memoryResults),
-      contextBuilderOutput: consolidatedPrompt,
-    });
+    // Inject previous conversation / context summarization
+    let formattedMessages = await injectContext(userId, accessToken, messages) as any[];
 
     const actualModel = resolveModel(mode as any);
     
@@ -120,10 +85,6 @@ export class ReasoningController {
         formattedMessages.unshift({ role: 'system', content: systemPrompt });
       }
 
-      DebugTraceStore.update(trace.requestId, {
-        finalPromptPreview: JSON.stringify(formattedMessages, null, 2).slice(0, 8000),
-      });
-
       if (mode === 'standard') {
         if (userQuery) {
           try {
@@ -135,69 +96,85 @@ Complexity: [LOW/MEDIUM/HIGH] (LOW for simple factual like "Capital of India", M
 Depth: [Short/Medium/Long]
 Sections: [Section 1, Section 2, ...]`;
 
-            const planResponse = await openai.chat.completions.create({
-              model: actualModel,
-              messages: [{ role: "system", content: planPrompt }],
-              max_tokens: 150,
-              temperature: 0.3
-            });
+            const fallbackPlan = "Topic: General\nComplexity: MEDIUM\nDepth: Short\nSections:\n- Main Response";
+            const responsePlan = await withRetriesAndFallback(
+              openai,
+              {
+                model: actualModel,
+                messages: [{ role: "system", content: planPrompt }],
+                max_tokens: 150,
+                temperature: 0.3
+              },
+              fallbackPlan,
+              2,
+              'planning'
+            );
             
-            const responsePlan = planResponse.choices[0]?.message?.content?.trim() || "";
+            console.log("DEBUG value:", responsePlan);
             if (responsePlan) {
               formattedMessages[0].content += "\n\n[RESPONSE PLAN]\n" + responsePlan + "\n\nPlease ensure your response strictly follows this structure and depth comprehensively. Do not artificially shorten your answer.";
-              
-              // Update trace to show the plan
-              DebugTraceStore.update(trace.requestId, {
-                finalPromptPreview: JSON.stringify(formattedMessages, null, 2).slice(0, 8000),
-              });
             }
           } catch (e) {
             console.error("[ReasoningController] Planning phase failed:", e);
           }
         }
 
-        const standardStream = await openai.chat.completions.create({
-          model: actualModel,
-          messages: formattedMessages,
-          stream: true,
-          temperature: 0.7,
-          max_tokens: 2500
-        });
+        const standardStreamStart = performance.now();
+        let standardStream;
+        try {
+          standardStream = await openai.chat.completions.create({
+            model: actualModel,
+            messages: formattedMessages,
+            stream: true,
+            temperature: 0.7,
+            max_tokens: 2500
+          });
+        } catch (streamErr: any) {
+          ProviderLogger.log({
+            provider: 'openrouter',
+            model: actualModel,
+            request_type: 'chat_stream',
+            success: false,
+            error_message: streamErr.message,
+            latency_ms: performance.now() - standardStreamStart
+          });
+          throw streamErr;
+        }
 
         let finalOutput = "";
-        for await (const chunk of standardStream) {
-          const text = chunk.choices[0]?.delta?.content || "";
-          if (text) {
-            finalOutput += text;
-            res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        let firstTokenTime = 0;
+        try {
+          for await (const chunk of standardStream) {
+            if (!firstTokenTime) {
+              firstTokenTime = performance.now() - standardStreamStart;
+              console.log(JSON.stringify({ requestId, phase: 'first_token', durationMs: Math.round(firstTokenTime) }));
+            }
+            const text = chunk.choices?.[0]?.delta?.content || "";
+            if (text) {
+              finalOutput += text;
+              res.write(`data: ${JSON.stringify({ text })}\n\n`);
+            }
           }
+        } catch (streamErr: any) {
+          console.error("[ReasoningController] Stream interrupted:", streamErr);
+          res.write(`data: ${JSON.stringify({ text: "\n\n*(Connection interrupted)*" })}\n\n`);
         }
+
+        const standardStreamDuration = performance.now() - standardStreamStart;
+        console.log(JSON.stringify({ requestId, phase: 'llm_request_complete', durationMs: Math.round(standardStreamDuration) }));
+        ProviderLogger.log({
+          provider: 'openrouter',
+          model: actualModel,
+          request_type: 'chat_stream',
+          success: true,
+          latency_ms: standardStreamDuration
+        });
 
         const fullMessages = [
           ...messages,
           { role: "assistant", content: finalOutput }
         ];
 
-        DebugTraceStore.update(trace.requestId, { llmResponse: finalOutput });
-        
-        const memoryExtractor = new MemoryExtractor();
-        memoryExtractor.extractAndSave(openai, userId, fullMessages)
-          .then(memoryResult => DebugTraceStore.update(trace.requestId, {
-            extractedMemories: memoryResult.extracted,
-            storedMemories: memoryResult.stored.map(memory => ({
-              id: memory.id,
-              content: memory.content,
-              category: memory.category,
-              importance: memory.importance,
-              embedding_status: memory.embedding_status,
-            })),
-          }))
-          .catch(e => console.error("Memory Extraction Error:", e));
-
-        if (fullMessages.length > 0 && fullMessages.length % 10 === 0) {
-          const episodeGenerator = new EpisodeGenerator();
-          episodeGenerator.generateAndSaveEpisode(openai, userId, fullMessages).catch(e => console.error("Episode Generation Error:", e));
-        }
         return;
       }
 
@@ -235,17 +212,21 @@ Use this EXACT JSON structure:
         requestCount++;
         console.log(`Research Session LLM Calls: ${requestCount}`);
         
-        const researchResponse = await openai.chat.completions.create({
-          model: actualModel,
-          messages: [
-            ...formattedMessages, 
-            { role: "user", content: comprehensivePrompt }
-          ],
-          max_tokens: 8000,
-          temperature: 0.7
-        });
-
-        const fullContent = researchResponse.choices[0]?.message?.content || "{}";
+        const fullContent = await withRetriesAndFallback(
+          openai,
+          {
+            model: actualModel,
+            messages: [
+              ...formattedMessages, 
+              { role: "user", content: comprehensivePrompt }
+            ],
+            max_tokens: 8000,
+            temperature: 0.7
+          },
+          "{}",
+          2,
+          'research'
+        );
         
         let parsedData: any = {
           plan: [{ title: "Analyze query" }, { title: "Synthesize findings" }, { title: "Generate report" }],
@@ -301,25 +282,6 @@ Use this EXACT JSON structure:
         }
         
         const fullMessages = [...messages, { role: "assistant", content: reportText }];
-        DebugTraceStore.update(trace.requestId, { llmResponse: reportText });
-        const memoryExtractor = new MemoryExtractor();
-        memoryExtractor.extractAndSave(openai, userId, fullMessages)
-          .then(memoryResult => DebugTraceStore.update(trace.requestId, {
-            extractedMemories: memoryResult.extracted,
-            storedMemories: memoryResult.stored.map(memory => ({
-              id: memory.id,
-              content: memory.content,
-              category: memory.category,
-              importance: memory.importance,
-              embedding_status: memory.embedding_status,
-            })),
-          }))
-          .catch(e => console.error("Memory Extraction Error:", e));
-
-        if (fullMessages.length > 0 && fullMessages.length % 10 === 0) {
-          const episodeGenerator = new EpisodeGenerator();
-          episodeGenerator.generateAndSaveEpisode(openai, userId, fullMessages).catch(e => console.error("Episode Generation Error:", e));
-        }
         return;
       }
 
@@ -327,38 +289,53 @@ Use this EXACT JSON structure:
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Thinking...", step: "Planning" } })}\n\n`);
       
       let planPrompt = getPlanPrompt(mode);
-      const planResponse = await openai.chat.completions.create({
-        model: actualModel,
-        messages: [...formattedMessages, { role: "user", content: planPrompt }],
-      });
-      const plan = planResponse.choices[0]?.message?.content || "Plan generated.";
+      const plan = await withRetriesAndFallback(
+        openai,
+        {
+          model: actualModel,
+          messages: [...formattedMessages, { role: "user", content: planPrompt }],
+        },
+        "Topic: General\nComplexity: MEDIUM\nDepth: Short\nSections:\n- Main Response",
+        2,
+        'planning'
+      );
       
       res.write(`data: ${JSON.stringify({ reasoning: { plan } })}\n\n`);
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Analyzing...", step: "Drafting" } })}\n\n`);
 
       // Step 2: Draft Output
-      const draftResponse = await openai.chat.completions.create({
-        model: actualModel,
-        messages: [
-          ...formattedMessages, 
-          { role: "assistant", content: plan },
-          { role: "user", content: "Now write the complete draft following the format requested." }
-        ],
-      });
-      const draft = draftResponse.choices[0]?.message?.content || "";
+      const draft = await withRetriesAndFallback(
+        openai,
+        {
+          model: actualModel,
+          messages: [
+            ...formattedMessages, 
+            { role: "assistant", content: plan },
+            { role: "user", content: "Now write the complete draft following the format requested." }
+          ],
+        },
+        "I encountered a temporary issue while drafting a response. Please try again.",
+        2,
+        'drafting'
+      );
 
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Reviewing...", step: "Critiquing" } })}\n\n`);
 
       // Step 3: Critique
-      const critiqueResponse = await openai.chat.completions.create({
-        model: actualModel,
-        messages: [
-          ...formattedMessages, 
-          { role: "assistant", content: draft },
-          { role: "user", content: critiquePrompt }
-        ],
-      });
-      const critique = critiqueResponse.choices[0]?.message?.content || "";
+      const critique = await withRetriesAndFallback(
+        openai,
+        {
+          model: actualModel,
+          messages: [
+            ...formattedMessages, 
+            { role: "assistant", content: draft },
+            { role: "user", content: critiquePrompt }
+          ],
+        },
+        "Critique bypassed due to provider issue.",
+        2,
+        'critique'
+      );
 
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Completed", isComplete: true } })}\n\n`);
 
@@ -373,85 +350,104 @@ Use this EXACT JSON structure:
         top_p = MODEL_BEHAVIORS["kimi-k2.6"]?.top_p ?? 0.9;
       }
 
-      const finalStream = await openai.chat.completions.create({
-        model: actualModel,
-        temperature,
-        top_p,
-        messages: [
-          ...formattedMessages, 
-          { role: "assistant", content: `Draft:\n${draft}\n\nCritique:\n${critique}` },
-          { role: "user", content: improvePrompt }
-        ],
-        stream: true
-      });
+      const finalStreamStart = performance.now();
+      let finalStream;
+      try {
+        finalStream = await openai.chat.completions.create({
+          model: actualModel,
+          temperature,
+          top_p,
+          messages: [
+            ...formattedMessages, 
+            { role: "assistant", content: `Draft:\n${draft}\n\nCritique:\n${critique}` },
+            { role: "user", content: improvePrompt }
+          ],
+          stream: true
+        });
+      } catch (streamErr: any) {
+        ProviderLogger.log({
+          provider: 'openrouter',
+          model: actualModel,
+          request_type: 'final_stream',
+          success: false,
+          error_message: streamErr.message,
+          latency_ms: performance.now() - finalStreamStart
+        });
+        throw streamErr;
+      }
 
       let finalOutput = "";
       let firstCodeBlockFound = false;
+      let finalFirstTokenTime = 0;
 
-      for await (const chunk of finalStream) {
-        const text = chunk.choices[0]?.delta?.content || "";
-        if (text) {
-          finalOutput += text;
-          
-          if (isCoding && !firstCodeBlockFound) {
-            if (finalOutput.includes("```")) {
-              firstCodeBlockFound = true;
-            } else {
-              const wordCount = finalOutput.trim().split(/\s+/).length;
-              if (wordCount > 500) {
-                // Fallback Protection: Stop current generation, trigger prompt rewrite
-                const fallbackResponse = await openai.chat.completions.create({
-                  model: actualModel,
-                  temperature: 0.1,
-                  messages: [
-                    ...formattedMessages,
-                    { role: "user", content: "Provide code only. Minimize explanations. Focus on implementation." }
-                  ],
-                  stream: true
-                });
-                for await (const fallbackChunk of fallbackResponse) {
-                  const fallbackText = fallbackChunk.choices[0]?.delta?.content || "";
-                  if (fallbackText) {
-                    res.write(`data: ${JSON.stringify({ text: fallbackText })}\n\n`);
+      try {
+        for await (const chunk of finalStream) {
+          if (!finalFirstTokenTime) {
+            finalFirstTokenTime = performance.now() - finalStreamStart;
+            console.log(JSON.stringify({ requestId, phase: 'final_first_token', durationMs: Math.round(finalFirstTokenTime) }));
+          }
+          const text = chunk.choices?.[0]?.delta?.content || "";
+          if (text) {
+            finalOutput += text;
+            
+            if (isCoding && !firstCodeBlockFound) {
+              if (finalOutput.includes("\`\`\`")) {
+                firstCodeBlockFound = true;
+              } else {
+                const wordCount = finalOutput.trim().split(/\s+/).length;
+                if (wordCount > 500) {
+                  // Fallback Protection: Stop current generation, trigger prompt rewrite
+                  const fallbackResponse = await openai.chat.completions.create({
+                    model: actualModel,
+                    temperature: 0.1,
+                    messages: [
+                      ...formattedMessages,
+                      { role: "user", content: "Provide code only. Minimize explanations. Focus on implementation." }
+                    ],
+                    stream: true
+                  });
+                  for await (const fallbackChunk of fallbackResponse) {
+                    const fallbackText = fallbackChunk.choices?.[0]?.delta?.content || "";
+                    if (fallbackText) {
+                      res.write(`data: ${JSON.stringify({ text: fallbackText })}\n\n`);
+                    }
                   }
+                  
+                  const finalStreamDurationFallback = performance.now() - finalStreamStart;
+                  ProviderLogger.log({
+                    provider: 'openrouter',
+                    model: actualModel,
+                    request_type: 'final_stream',
+                    success: true,
+                    latency_ms: finalStreamDurationFallback
+                  });
+                  return;
                 }
-                return;
               }
             }
+            
+            res.write(`data: ${JSON.stringify({ text })}\n\n`);
           }
-          
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
+      } catch (streamErr: any) {
+        console.error("[ReasoningController] Final stream interrupted:", streamErr);
+        res.write(`data: ${JSON.stringify({ text: "\n\n*(Connection interrupted)*" })}\n\n`);
       }
 
-      // Memory Extraction Layer (Non-blocking)
+      const finalStreamDuration = performance.now() - finalStreamStart;
+      console.log(JSON.stringify({ requestId, phase: 'llm_request_complete', durationMs: Math.round(finalStreamDuration) }));
+      ProviderLogger.log({
+        provider: 'openrouter',
+        model: actualModel,
+        request_type: 'final_stream',
+        success: true,
+        latency_ms: finalStreamDuration
+      });
+
       const fullMessages = [
         ...messages,
         { role: "assistant", content: finalOutput }
       ];
-
-      DebugTraceStore.update(trace.requestId, { llmResponse: finalOutput });
-      
-      const memoryExtractor = new MemoryExtractor();
-      memoryExtractor.extractAndSave(openai, userId, fullMessages)
-        .then(memoryResult => DebugTraceStore.update(trace.requestId, {
-          extractedMemories: memoryResult.extracted,
-          storedMemories: memoryResult.stored.map(memory => ({
-            id: memory.id,
-            content: memory.content,
-            category: memory.category,
-            importance: memory.importance,
-            embedding_status: memory.embedding_status,
-          })),
-        }))
-        .catch(e => console.error("Memory Extraction Error:", e));
-
-      // Episode Generation (Triggered periodically or at end of session)
-      // We will trigger episode generation if the chat reaches a threshold (e.g. 10 messages)
-      if (fullMessages.length > 0 && fullMessages.length % 10 === 0) {
-        const episodeGenerator = new EpisodeGenerator();
-        episodeGenerator.generateAndSaveEpisode(openai, userId, fullMessages).catch(e => console.error("Episode Generation Error:", e));
-      }
 
       return;
     } catch (error: unknown) {

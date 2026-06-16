@@ -90,78 +90,6 @@ export interface Database {
         };
         Relationships: never[];
       };
-      memories: {
-        Row: {
-          id: string;
-          user_id: string;
-          content: string;
-          category: string | null;
-          importance: number;
-          embedding: string | null;
-          embedding_status: string;
-          memory_state: string;
-          occurrence_count: number;
-          last_seen_at: string;
-          superseded_by: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          content: string;
-          category?: string | null;
-          importance?: number;
-          embedding?: string | null;
-          embedding_status?: string;
-          memory_state?: string;
-          occurrence_count?: number;
-          last_seen_at?: string;
-          superseded_by?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          content?: string;
-          category?: string | null;
-          importance?: number;
-          embedding?: string | null;
-          embedding_status?: string;
-          memory_state?: string;
-          occurrence_count?: number;
-          last_seen_at?: string;
-          superseded_by?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: never[];
-      };
-      episodes: {
-        Row: {
-          id: string;
-          user_id: string;
-          summary: string;
-          embedding: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          summary: string;
-          embedding?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          summary?: string;
-          embedding?: string | null;
-          created_at?: string;
-        };
-        Relationships: never[];
-      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -174,5 +102,3 @@ export interface Database {
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Chat = Database['public']['Tables']['chats']['Row'];
 export type ChatMessage = Database['public']['Tables']['chat_messages']['Row'];
-export type Memory = Database['public']['Tables']['memories']['Row'];
-export type Episode = Database['public']['Tables']['episodes']['Row'];

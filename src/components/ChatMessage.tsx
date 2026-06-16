@@ -14,7 +14,6 @@ import { FileTree } from "./markdown/FileTree";
 import { ReasoningPanel } from "./reasoning/ReasoningPanel";
 import { ReasoningPhase, ResearchSession } from "../store/chatStore";
 import { ResearchSessionView } from "./research/ResearchSessionView";
-import { MemoryTracePanel } from "./memory/MemoryTracePanel";
 
 interface ChatMessageProps {
   id: string;
@@ -25,20 +24,18 @@ interface ChatMessageProps {
   isSearchingWeb?: boolean;
   reasoning?: ReasoningPhase;
   research?: ResearchSession;
-  memoryTraceId?: string;
   mode?: string;
   sources?: Array<{ title: string; url: string; snippet?: string }>;
   onEdit?: (id: string, newContent: string) => void;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, images, isGenerating, isSearchingWeb, reasoning, research, memoryTraceId, mode, sources, onEdit }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, images, isGenerating, isSearchingWeb, reasoning, research, mode, sources, onEdit }) => {
   const isUser = role === "user";
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
   const [debouncedContent, setDebouncedContent] = useState(content);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
-  const isMemoryTraceEnabled = import.meta.env.VITE_ENABLE_MEMORY_TRACE === 'true';
 
   useEffect(() => {
     return () => {
@@ -331,10 +328,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                   <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "150ms" }}></div>
                   <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "300ms" }}></div>
                 </div>
-              )}
-
-              {!isGenerating && memoryTraceId && isMemoryTraceEnabled && (
-                <MemoryTracePanel requestId={memoryTraceId} />
               )}
 
               {sources && sources.length > 0 && (

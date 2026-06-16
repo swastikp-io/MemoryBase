@@ -101,6 +101,10 @@ export const MainChat: React.FC = () => {
 
       if (!response.body) throw new Error("No response body");
 
+      let connectionTimeout = setTimeout(() => {
+        abortController.abort(new Error("timeout"));
+      }, 30000);
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let done = false;
@@ -125,11 +129,20 @@ export const MainChat: React.FC = () => {
               }
               try {
                 const data = JSON.parse(dataStr);
+                
+                // Clear timeout once we receive any valid data from the server
+                if (connectionTimeout) {
+                  clearTimeout(connectionTimeout);
+                  connectionTimeout = null as any;
+                }
+
+                if (data.status === "connected") {
+                  console.log("Connected to stream.");
+                  continue;
+                }
+                
                 if (data.isSearchingWeb) {
                   updateMessageContent(modelMessageId, "", false, true);
-                }
-                if (data.memoryTraceId) {
-                  updateMessageContent(modelMessageId, "", true, undefined, data.memoryTraceId);
                 }
                 if (data.text) {
                   fullResponse += data.text;
@@ -138,13 +151,13 @@ export const MainChat: React.FC = () => {
                   updateMessageContent(modelMessageId, "\n\n**Error:** " + data.error, true);
                 }
                 if (data.reasoning) {
-                  updateMessageContent(modelMessageId, "", false, undefined, undefined, data.reasoning);
+                  updateMessageContent(modelMessageId, "", false, undefined, data.reasoning);
                 }
                 if (data.research) {
-                  updateMessageContent(modelMessageId, "", false, undefined, undefined, undefined, data.research);
+                  updateMessageContent(modelMessageId, "", false, undefined, undefined, data.research);
                 }
                 if (data.sources) {
-                  updateMessageContent(modelMessageId, "", false, false, undefined, undefined, undefined, data.sources);
+                  updateMessageContent(modelMessageId, "", false, false, undefined, undefined, data.sources);
                 }
               } catch (e) {
               }
@@ -156,12 +169,20 @@ export const MainChat: React.FC = () => {
       // Save assistant message to DB
       await saveMessage(activeChatId, 'model', fullResponse);
       
+      if (connectionTimeout) {
+        clearTimeout(connectionTimeout);
+      }
+      
     } catch (error: any) {
-      if (error.name === "AbortError") {
+      if (error.name === "AbortError" && error.message === "timeout") {
+        updateMessageContent(modelMessageId, "\n\n*The AI provider did not respond in time.*", true);
+      } else if (error.name === "AbortError") {
         updateMessageContent(modelMessageId, "\n\n*Generation stopped.*", true);
         if (selectedMode === 'research') {
-          updateMessageContent(modelMessageId, "", false, undefined, undefined, undefined, { status: 'cancelled' });
+          updateMessageContent(modelMessageId, "", false, undefined, undefined, { status: 'cancelled' });
         }
+      } else if (error.message === "No response body" || error.message.includes("fetch")) {
+        updateMessageContent(modelMessageId, "\n\n*Connection lost. Please retry.*", true);
       } else {
         updateMessageContent(modelMessageId, "\n\n*Error: Could not reach the server.*", true);
       }
@@ -296,7 +317,6 @@ export const MainChat: React.FC = () => {
                 reasoning={msg.reasoning}
                 research={msg.research}
                 sources={msg.sources}
-                memoryTraceId={msg.memoryTraceId}
                 mode={selectedMode}
                 onEdit={isStreaming ? undefined : handleEditMessage}
               />

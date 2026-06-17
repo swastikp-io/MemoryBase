@@ -27,8 +27,20 @@ const checkEnvironment = (): string | null => {
 
 
 export const app = express();
+
+// Vercel body-parser workaround:
+// When deployed on Vercel, @vercel/node parses the body automatically.
+// If it's already parsed, tell express.json() to skip parsing so it doesn't hang.
+app.use((req, res, next) => {
+  if (req.body && Object.keys(req.body).length > 0) {
+    (req as any)._body = true; // Prevents express.json() from hanging on consumed stream
+  }
+  next();
+});
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
 
 export function setupRoutes() {
 

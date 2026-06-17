@@ -120,6 +120,7 @@ Sections: [Section 1, Section 2, ...]`;
         }
 
         const standardStreamStart = performance.now();
+        console.log(`[ReasoningController] Initiating standard stream [requestId: ${requestId}] - Model: ${actualModel}`);
         let standardStream;
         try {
           standardStream = await openai.chat.completions.create({
@@ -351,6 +352,7 @@ Use this EXACT JSON structure:
       }
 
       const finalStreamStart = performance.now();
+      console.log(`[ReasoningController] Initiating final reasoning stream [requestId: ${requestId}] - Model: ${actualModel}`);
       let finalStream;
       try {
         finalStream = await openai.chat.completions.create({
@@ -451,21 +453,21 @@ Use this EXACT JSON structure:
 
       return;
     } catch (error: unknown) {
-      const errorObj = error as { status?: number; message?: string };
+      const errorObj = error as { status?: number; message?: string; stack?: string };
+      console.error(`[ReasoningController] Fatal Execution Error [requestId: ${requestId}]:`, errorObj.stack || errorObj);
+      
       if (errorObj?.status === 429 || errorObj?.message?.includes("429") || errorObj?.message?.includes("RateLimitError")) {
-        console.warn(`[ReasoningController] Rate limit exceeded (429).`);
+        console.warn(`[ReasoningController] Rate limit exceeded (429) [requestId: ${requestId}].`);
         const errorResponse = "\\n\\n*(Error: Provider rate limit exceeded. Please wait a moment and try again.)*";
-        res.write(`data: ${JSON.stringify({ text: errorResponse })}\n\n`);
+        try { res.write(`data: ${JSON.stringify({ text: errorResponse })}\n\n`); } catch(e){}
       } else {
-        console.error("Reasoning Controller Error:", error);
-        
         let errorMsg = errorObj?.message || "Unknown";
         if (errorObj?.status === 401 || errorMsg.includes("401") || errorMsg.includes("Missing Authentication header") || errorMsg.includes("Invalid Authentication header")) {
-          errorMsg = "Unauthorized. Please ensure your OpenRouter API Key is entered correctly in the .env file.";
+          errorMsg = "Unauthorized. Please ensure your OpenRouter API Key is entered correctly in the .env file or Vercel Environment Variables.";
         }
 
         const errorResponse = "\\n\\n*(Error executing reasoning network: " + errorMsg + ")*";
-        res.write(`data: ${JSON.stringify({ text: errorResponse })}\n\n`);
+        try { res.write(`data: ${JSON.stringify({ text: errorResponse })}\n\n`); } catch(e){}
       }
     }
   }

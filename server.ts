@@ -16,6 +16,14 @@ const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY || "dummy_key",
 });
 
+// Environment Validation Helper
+const checkEnvironment = (): string | null => {
+  if (!process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY === "dummy_key" || process.env.OPENROUTER_API_KEY.includes("your-openrouter-api-key")) {
+    return "OPENROUTER_API_KEY is missing or invalid in environment variables.";
+  }
+  return null;
+};
+
 
 
 export const app = express();
@@ -27,13 +35,17 @@ export function setupRoutes() {
 
   // API route for chat message streaming
   app.post("/api/chat", async (req, res) => {
+    console.log(`[POST /api/chat] Request received. Body size: ${JSON.stringify(req.body).length} bytes`);
     const userId = "local-user";
     const accessToken = "mock-token";
     const { messages, mode, webSearch } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
+      console.error("[POST /api/chat] Validation failed: messages array is missing or invalid.");
       return res.status(400).json({ error: "Messages array is required" });
     }
+    
+    console.log(`[POST /api/chat] Processing request. Mode: ${mode}, Messages: ${messages.length}, WebSearch: ${Boolean(webSearch)}`);
 
     try {
       res.setHeader("Content-Type", "text/event-stream");
@@ -41,6 +53,14 @@ export function setupRoutes() {
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders();
       
+      const envError = checkEnvironment();
+      if (envError) {
+        console.error(`[POST /api/chat] Environment Validation Error: ${envError}`);
+        res.write(`data: ${JSON.stringify({ error: `Server Configuration Error: ${envError}` })}\n\n`);
+        res.write("data: [DONE]\n\n");
+        return res.end();
+      }
+
       res.write(`data: ${JSON.stringify({ status: "connected" })}\n\n`);
 
       const currentOpenAI = openai;
@@ -50,20 +70,26 @@ export function setupRoutes() {
       res.end();
 
     } catch (error: any) {
-      console.error("OpenRouter API Error:", error);
+      console.error("[POST /api/chat] OpenRouter API Error caught in top-level route handler:", error);
       let errorMessage = "An error occurred while communicating with the AI.";
       if (error && error.message) {
         if (error.status === 429 || error.message.includes("429") || error.message.includes("Quota exceeded") || error.message.includes("rate limit")) {
           errorMessage = "Rate limit exceeded. Check back after 24 hours.";
-        } else if (error.status === 401) {
+        } else if (error.status === 401 || error.message.includes("401")) {
           errorMessage = "Unauthorized. Please check your OpenRouter API Key in the Settings.";
         } else {
           errorMessage = "Error: " + error.message;
         }
       }
-      res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
-      res.write("data: [DONE]\n\n");
-      res.end();
+      
+      // Ensure we don't crash and we actually stream the error down to the client.
+      try {
+        res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
+        res.write("data: [DONE]\n\n");
+        res.end();
+      } catch (streamError) {
+        console.error("[POST /api/chat] Failed to write error to stream:", streamError);
+      }
     }
   });
 

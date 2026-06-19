@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { randomUUID } from 'crypto';
 import { injectContext } from './contextInjector.ts';
 import { withRetriesAndFallback } from '../utils/llmValidation.ts';
 const ProviderLogger = { log: (x: any) => {} };
@@ -8,6 +9,7 @@ import { searchWeb, buildSearchContext } from '../services/websearch.ts';
 
 import { MODEL_BEHAVIORS } from '../../src/lib/model-behaviors.ts';
 import { resolveModel } from '../../src/lib/models/resolver.ts';
+import { ResearchPipeline } from './researchPipeline.ts';
 
 export class ReasoningController {
   static async execute(
@@ -30,8 +32,29 @@ export class ReasoningController {
 
     const requestId = Date.now().toString();
 
+    const emitStep = (step: any) => {
+      res.write(`data: ${JSON.stringify({ reasoningStep: step })}\n\n`);
+    };
+
+    const understandId = randomUUID();
+    emitStep({ id: understandId, title: "Understanding request", type: "system", status: "active", startedAt: Date.now() });
+    
+    // Simulate tiny delay for realistic trace
+    await new Promise(r => setTimeout(r, 120));
+    emitStep({ id: understandId, status: "completed", completedAt: Date.now() });
+
+    const modeId = randomUUID();
+    emitStep({ id: modeId, title: "Detecting mode", type: "system", status: "active", startedAt: Date.now() });
+    await new Promise(r => setTimeout(r, 80));
+    emitStep({ id: modeId, status: "completed", description: `Selected mode: ${mode}`, completedAt: Date.now() });
+
+    const contextId = randomUUID();
+    emitStep({ id: contextId, title: "Building context", type: "memory", status: "active", startedAt: Date.now() });
+
     // Inject previous conversation / context summarization
     let formattedMessages = await injectContext(userId, accessToken, messages) as any[];
+    
+    emitStep({ id: contextId, status: "completed", completedAt: Date.now() });
 
     const actualModel = resolveModel(mode as any);
     
@@ -53,14 +76,17 @@ export class ReasoningController {
 
     // ─── Web Search API (User Triggered) ──────────────────────────────
     if (webSearch && userQuery) {
+      const searchId = randomUUID();
       try {
         // Signal the frontend that a search is in progress
         res.write(`data: ${JSON.stringify({ isSearchingWeb: true })}\n\n`);
+        emitStep({ id: searchId, title: "Searching the web", type: "search", status: "active", startedAt: Date.now() });
 
         const searchResults = await searchWeb(userQuery);
 
         if (searchResults.length > 0) {
           const searchContext = buildSearchContext(searchResults);
+          emitStep({ id: searchId, status: "completed", description: `Collected ${searchResults.length} sources`, completedAt: Date.now() });
 
           // Append search context to the system message
           if (formattedMessages.length > 0 && formattedMessages[0].role === 'system') {
@@ -70,10 +96,13 @@ export class ReasoningController {
           }
           
           res.write(`data: ${JSON.stringify({ sources: searchResults })}\n\n`);
+        } else {
+          emitStep({ id: searchId, status: "completed", description: "No sources found", completedAt: Date.now() });
         }
       } catch (searchError: unknown) {
         const errorMsg = searchError instanceof Error ? searchError.message : 'Unknown search error';
         console.error('[ReasoningController] Web search failed gracefully:', errorMsg);
+        emitStep({ id: searchId, status: "error", description: "Search failed", completedAt: Date.now() });
       }
     }
 
@@ -87,7 +116,9 @@ export class ReasoningController {
 
       if (mode === 'standard') {
         if (userQuery) {
+          const planId = randomUUID();
           try {
+            emitStep({ id: planId, title: "Analyzing request", type: "analysis", status: "active", startedAt: Date.now() });
             const planPrompt = `Analyze the following user query: "${userQuery}"
             
 Generate a brief response plan. Output ONLY the plan in the following exact text format, with no markdown formatting around it:
@@ -114,10 +145,15 @@ Sections: [Section 1, Section 2, ...]`;
             if (responsePlan) {
               formattedMessages[0].content += "\n\n[RESPONSE PLAN]\n" + responsePlan + "\n\nPlease ensure your response strictly follows this structure and depth comprehensively. Do not artificially shorten your answer.";
             }
+            emitStep({ id: planId, status: "completed", description: "Created response plan", completedAt: Date.now() });
           } catch (e) {
             console.error("[ReasoningController] Planning phase failed:", e);
+            emitStep({ id: planId, status: "error", description: "Failed to analyze request", completedAt: Date.now() });
           }
         }
+
+        const genId = randomUUID();
+        emitStep({ id: genId, title: "Generating response", type: "generation", status: "active", startedAt: Date.now() });
 
         const standardStreamStart = performance.now();
         console.log(`[ReasoningController] Initiating standard stream [requestId: ${requestId}] - Model: ${actualModel}`);
@@ -161,6 +197,13 @@ Sections: [Section 1, Section 2, ...]`;
           res.write(`data: ${JSON.stringify({ text: "\n\n*(Connection interrupted)*" })}\n\n`);
         }
 
+        emitStep({ id: genId, status: "completed", completedAt: Date.now() });
+
+        const finalId = randomUUID();
+        emitStep({ id: finalId, title: "Finalizing answer", type: "system", status: "active", startedAt: Date.now() });
+        await new Promise(r => setTimeout(r, 100)); // Small realistic delay
+        emitStep({ id: finalId, status: "completed", completedAt: Date.now() });
+
         const standardStreamDuration = performance.now() - standardStreamStart;
         console.log(JSON.stringify({ requestId, phase: 'llm_request_complete', durationMs: Math.round(standardStreamDuration) }));
         ProviderLogger.log({
@@ -180,113 +223,13 @@ Sections: [Section 1, Section 2, ...]`;
       }
 
       if (mode === 'research') {
-        const sessionId = Date.now().toString();
-        res.write(`data: ${JSON.stringify({ research: { id: sessionId, status: 'planning', progress: 0, steps: [], events: [], title: userQuery } })}\n\n`);
-        
-        let requestCount = 0;
-
-        const comprehensivePrompt = `You are conducting a complete deep research task.
-You must return the entire research session in exactly ONE JSON response.
-Do not output any markdown formatting like \`\`\`json around the response, just return the raw JSON object.
-
-Use this EXACT JSON structure:
-{
-  "plan": [
-    {
-      "title": "Clear concise step title",
-      "description": "Short description of what is researched"
-    }
-  ],
-  "findings": [
-    {
-      "step": "Step title",
-      "content": "Detailed findings for this step",
-      "sources": ["source 1", "source 2"]
-    }
-  ],
-  "summary": "Brief summary of the research",
-  "finalReport": "Your complete, comprehensive final research report containing all synthesized findings and sources in markdown format. This should be very detailed.",
-  "sources": ["List of all sources used"]
-}
-`;
-        
-        requestCount++;
-        console.log(`Research Session LLM Calls: ${requestCount}`);
-        
-        const fullContent = await withRetriesAndFallback(
-          openai,
-          {
-            model: actualModel,
-            messages: [
-              ...formattedMessages, 
-              { role: "user", content: comprehensivePrompt }
-            ],
-            max_tokens: 8000,
-            temperature: 0.7
-          },
-          "{}",
-          2,
-          'research'
-        );
-        
-        let parsedData: any = {
-          plan: [{ title: "Analyze query" }, { title: "Synthesize findings" }, { title: "Generate report" }],
-          finalReport: "Failed to parse research data. Raw output:\n\n" + fullContent
-        };
-
-        try {
-          // Attempt to extract JSON if it was wrapped in markdown
-          const jsonMatch = fullContent.match(/```(?:json)?\n([\s\S]*?)\n```/i) || fullContent.match(/\{[\s\S]*\}/);
-          const rawJson = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : fullContent;
-          parsedData = JSON.parse(rawJson);
-        } catch (e) {
-          console.error("Failed to parse single-request deep research JSON:", e);
-        }
-
-        const steps: any[] = (parsedData.plan || parsedData.planText || parsedData.steps || parsedData.planArray || []).map((p: any, i: number) => {
-          let cleanTitle = typeof p === 'string' ? p : (p.title || `Step ${i + 1}`);
-          cleanTitle = cleanTitle.replace(/\*\*/g, '').replace(/__/g, '').replace(/`/g, '').replace(/^#+\s*/, '').trim();
-          return {
-            id: `step-${i}`,
-            title: cleanTitle,
-            status: 'pending'
-          };
-        });
-        
-        if (steps.length === 0) {
-          steps.push({ id: 'step-0', title: 'Synthesize findings', status: 'pending' });
-        }
-        
-        let events: any[] = []; // Empty events array since Activity Panel is removed
-        
-        res.write(`data: ${JSON.stringify({ research: { status: 'running', steps, events } })}\n\n`);
-        
-        for (let i = 0; i < steps.length; i++) {
-          steps[i].status = 'running';
-          res.write(`data: ${JSON.stringify({ research: { steps, events, progress: (i / steps.length) * 100 } })}\n\n`);
-          
-          await new Promise(r => setTimeout(r, 800 + Math.random() * 800)); // 0.8-1.6s delay
-          
-          steps[i].status = 'completed';
-          res.write(`data: ${JSON.stringify({ research: { steps, events, progress: ((i + 1) / steps.length) * 100 } })}\n\n`);
-        }
-        
-        res.write(`data: ${JSON.stringify({ research: { status: 'completed', events } })}\n\n`);
-        
-        // Stream final report for visual effect
-        const reportText = parsedData.finalReport || parsedData.report || parsedData.summary || fullContent;
-        const chunkSize = 15;
-        for (let i = 0; i < reportText.length; i += chunkSize) {
-          const chunk = reportText.slice(i, i + chunkSize);
-          res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
-          await new Promise(r => setTimeout(r, 10)); // rapid streaming delay
-        }
-        
-        const fullMessages = [...messages, { role: "assistant", content: reportText }];
+        await ResearchPipeline.execute(openai, formattedMessages, userQuery, actualModel, res);
         return;
       }
 
       // Step 1: Internal Plan
+      const planId = randomUUID();
+      emitStep({ id: planId, title: "Creating execution plan", type: "analysis", status: "active", startedAt: Date.now() });
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Thinking...", step: "Planning" } })}\n\n`);
       
       let planPrompt = getPlanPrompt(mode);
@@ -301,7 +244,11 @@ Use this EXACT JSON structure:
         'planning'
       );
       
+      emitStep({ id: planId, status: "completed", completedAt: Date.now() });
       res.write(`data: ${JSON.stringify({ reasoning: { plan } })}\n\n`);
+      
+      const draftId = randomUUID();
+      emitStep({ id: draftId, title: "Drafting response", type: "generation", status: "active", startedAt: Date.now() });
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Analyzing...", step: "Drafting" } })}\n\n`);
 
       // Step 2: Draft Output
@@ -320,6 +267,10 @@ Use this EXACT JSON structure:
         'drafting'
       );
 
+      emitStep({ id: draftId, status: "completed", completedAt: Date.now() });
+      
+      const critiqueId = randomUUID();
+      emitStep({ id: critiqueId, title: "Reviewing and critiquing", type: "analysis", status: "active", startedAt: Date.now() });
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Reviewing...", step: "Critiquing" } })}\n\n`);
 
       // Step 3: Critique
@@ -338,7 +289,11 @@ Use this EXACT JSON structure:
         'critique'
       );
 
+      emitStep({ id: critiqueId, status: "completed", completedAt: Date.now() });
       res.write(`data: ${JSON.stringify({ reasoning: { status: "Completed", isComplete: true } })}\n\n`);
+
+      const finalGenId = randomUUID();
+      emitStep({ id: finalGenId, title: "Generating final output", type: "generation", status: "active", startedAt: Date.now() });
 
       // Step 4: Final Stream
       let temperature: number | undefined = undefined;
@@ -435,6 +390,13 @@ Use this EXACT JSON structure:
         console.error("[ReasoningController] Final stream interrupted:", streamErr);
         res.write(`data: ${JSON.stringify({ text: "\n\n*(Connection interrupted)*" })}\n\n`);
       }
+
+      emitStep({ id: finalGenId, status: "completed", completedAt: Date.now() });
+
+      const finalizeId = randomUUID();
+      emitStep({ id: finalizeId, title: "Finalizing answer", type: "system", status: "active", startedAt: Date.now() });
+      await new Promise(r => setTimeout(r, 100)); // Small realistic delay
+      emitStep({ id: finalizeId, status: "completed", completedAt: Date.now() });
 
       const finalStreamDuration = performance.now() - finalStreamStart;
       console.log(JSON.stringify({ requestId, phase: 'llm_request_complete', durationMs: Math.round(finalStreamDuration) }));

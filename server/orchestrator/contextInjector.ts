@@ -43,7 +43,7 @@ export async function injectContext(
       }
       return {
         role: msg.role === "user" ? "user" : "assistant",
-        content: contentItems.length > 0 ? contentItems : [{ type: "text", text: "" }],
+        content: contentItems.length > 0 && msg.images && msg.images.length > 0 ? contentItems : (msg.content || ""),
       };
     })
   ];

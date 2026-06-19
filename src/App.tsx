@@ -3,13 +3,20 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { MainChat } from "./components/MainChat";
 import { useChatStore } from "./store/chatStore";
-import { LandingPage } from "./pages/LandingPage";
-
 
 import { DocsPage } from "./pages/DocsPage";
+import { LandingPageSkeleton } from "./components/landing/landing-page-skeleton";
+
+const LandingPage = React.lazy(() => {
+  return Promise.all([
+    import("./pages/LandingPage"),
+    new Promise(resolve => setTimeout(resolve, 1500))
+  ]).then(([module]) => ({ default: module.LandingPage }));
+});
 import { AnimatePresence } from "motion/react";
 import { useSettingsStore } from "./store/settings";
 import { ThemeProvider } from "./theme/ThemeProvider";
+import { TooltipProvider } from "./components/ui/tooltip";
 
 function ChatApp() {
   const { loadChats, chats, activeChatId, loadChat, createChat } = useChatStore();
@@ -36,7 +43,11 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={
+          <React.Suspense fallback={<LandingPageSkeleton />}>
+            <LandingPage />
+          </React.Suspense>
+        } />
         <Route path="/docs" element={<DocsPage />} />
         <Route path="/chat" element={<ChatApp />} />
 
@@ -54,7 +65,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AnimatedRoutes />
+        <TooltipProvider>
+          <AnimatedRoutes />
+        </TooltipProvider>
       </ThemeProvider>
     </BrowserRouter>
   );

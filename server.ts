@@ -1,3 +1,4 @@
+import { executeWithFallbacks } from './server/utils/llmValidation.ts';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -113,47 +114,121 @@ export function setupRoutes() {
     }
 
     try {
-      const currentOpenAI = openai;
-      const actualModel = resolveModel(mode as any);
+      const TITLE_MODEL = process.env.TITLE_GENERATION_MODEL || "openai/gpt-oss-120b:free";
+      const FALLBACK_MODEL = process.env.TITLE_GENERATION_FALLBACK_MODEL || "google/gemma-3-27b-it:free";
+      
+      const localFallbackTitle = firstMessage.trim().split(/\s+/).slice(0, 5).join(" ") || "New Chat";
 
-      const completion = await currentOpenAI.chat.completions.create({
-        model: actualModel,
-        temperature: 0.3,
-        max_tokens: 30,
-        messages: [
-          {
-            role: "system",
-            content: "You generate concise conversation titles.\nRules:\n- Maximum 6 words\n- No quotation marks\n- No punctuation unless necessary\n- Title Case\n- Descriptive\n- Professional\n- No filler words\nReturn only the title."
-          },
-          {
-            role: "user",
-            content: `Input:\n${firstMessage}`
-          }
-        ]
-      });
+      const generatedTitle = await executeWithFallbacks(
+        openai,
+        {
+          messages: [
+            {
+              role: "system",
+              content: "You generate concise conversation titles.\nRules:\n- Maximum 6 words\n- No quotation marks\n- No punctuation unless necessary\n- Title Case\n- Descriptive\n- Professional\n- No filler words\nReturn only the title."
+            },
+            {
+              role: "user",
+              content: `Input:\n${firstMessage}`
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 30
+        },
+        [TITLE_MODEL, FALLBACK_MODEL],
+        localFallbackTitle,
+        'title_generation'
+      );
 
-      let generatedTitle = completion.choices[0]?.message?.content?.trim() || "";
-      generatedTitle = generatedTitle.replace(/["':\n]/g, ""); // Remove quotes and newlines
-      if (generatedTitle.length > 60) {
-        generatedTitle = generatedTitle.substring(0, 60).trim();
-      }
+      let cleanTitle = generatedTitle.replace(/["':\n]/g, "");
+      if (cleanTitle.length > 60) cleanTitle = cleanTitle.substring(0, 60).trim();
 
-      res.json({ title: generatedTitle });
+      res.json({ title: cleanTitle });
     } catch (error: any) {
-      console.error("Title generation error gracefully caught:", error.message);
-      
-      // Backend fallback logic to ensure frontend never receives a 500
-      let fallbackTitle = firstMessage.trim().split(/\s+/).slice(0, 5).join(" ");
-      if (!fallbackTitle) fallbackTitle = "New Chat";
-      
-      res.json({ title: fallbackTitle });
+      console.error("Title generation error completely failed:", error.message);
+      res.json({ title: firstMessage.trim().split(/\s+/).slice(0, 5).join(" ") || "New Chat" });
     }
   });
 
 
 
 
-  app.post("/api/canvas/edit", async (req, res) => {
+  
+  app.post("/api/research/plan", async (req, res) => {
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: "query is required" });
+    }
+
+    try {
+      const RESEARCH_MODEL = process.env.PRIMARY_RESEARCH_MODEL || "openai/gpt-oss-120b:free";
+      const FALLBACK_MODEL = "google/gemma-3-27b-it:free";
+      
+      const systemPrompt = "You are an expert research planner.\n" +
+        "Analyze the user's research query and generate a structured research plan.\n" +
+        "Return ONLY a valid JSON object matching this schema:\n" +
+        "{\n" +
+        "  \"title\": \"A concise 3-6 word title for this research\",\n" +
+        "  \"estimatedSources\": <number between 10 and 100>,\n" +
+        "  \"steps\": [\n" +
+        "    \"A clear, descriptive step (e.g. Survey recent academic literature...)\",\n" +
+        "    \"Another step...\"\n" +
+        "  ]\n" +
+        "}\n" +
+        "Generate 3-6 steps. No markdown formatting outside the JSON.";
+
+      const planResult = await executeWithFallbacks(
+        openai,
+        {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: "Query: " + query }
+          ],
+          temperature: 0.2,
+          max_tokens: 500
+        },
+        [RESEARCH_MODEL, FALLBACK_MODEL],
+        JSON.stringify({
+          title: "Research: " + query.substring(0, 30),
+          estimatedSources: 25,
+          steps: [
+            "Analyze the core concepts and definitions.",
+            "Gather relevant data, articles, and documentation.",
+            "Synthesize findings into a comprehensive report."
+          ]
+        }),
+        'research_plan_generation'
+      );
+
+      let parsedPlan;
+      try {
+        let cleanJson = planResult.trim();
+        if (cleanJson.startsWith('```json')) {
+          cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+        }
+        parsedPlan = JSON.parse(cleanJson);
+      } catch (e) {
+        // Fallback if parsing fails
+        parsedPlan = {
+          title: "Research Plan",
+          estimatedSources: 30,
+          steps: [
+            "Analyze intent and constraints.",
+            "Survey available literature and data.",
+            "Compile and synthesize findings.",
+            "Format the final report."
+          ]
+        };
+      }
+
+      res.json(parsedPlan);
+    } catch (error) {
+      console.error("Research plan generation failed:", error);
+      res.status(500).json({ error: "Failed to generate plan" });
+    }
+  });
+
+app.post("/api/canvas/edit", async (req, res) => {
 
     const { selectedText, instruction, model } = req.body;
     if (!selectedText || !instruction) {

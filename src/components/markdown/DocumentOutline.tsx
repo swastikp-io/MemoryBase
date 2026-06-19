@@ -19,7 +19,7 @@ export const DocumentOutline: React.FC<DocumentOutlineProps> = ({ content }) => 
   return (
     <>
       {/* Mobile Toggle Button */}
-      <div className="fixed bottom-24 right-4 z-40 2xl:hidden">
+      <div className="fixed bottom-24 right-4 z-40 xl:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="p-3 bg-[var(--accent-primary)] text-[var(--accent-fg)] rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity"
@@ -31,7 +31,7 @@ export const DocumentOutline: React.FC<DocumentOutlineProps> = ({ content }) => 
 
       {/* Mobile Sidebar */}
       {isOpen && (
-        <div className="fixed inset-0 z-30 2xl:hidden flex">
+        <div className="fixed inset-0 z-30 xl:hidden flex">
           <div className="absolute inset-0 bg-black/20" onClick={() => setIsOpen(false)} />
           <div className="relative w-64 max-w-[80vw] h-full bg-[var(--bg-secondary)] border-r border-border-color shadow-xl flex flex-col">
             <div className="flex-1 overflow-hidden pt-4">
@@ -41,9 +41,9 @@ export const DocumentOutline: React.FC<DocumentOutlineProps> = ({ content }) => 
         </div>
       )}
 
-      {/* Desktop Fixed Sidebar */}
-      <div className="hidden 2xl:block fixed top-32 right-8 w-64 max-h-[calc(100vh-16rem)] z-30">
-        <div className="h-full bg-[var(--bg-primary)]/80 backdrop-blur-md rounded-2xl border border-border-color shadow-sm">
+      {/* Desktop Sidebar */}
+      <div className="hidden xl:block w-[280px] flex-shrink-0 border-l border-border-color bg-[var(--bg-primary)] relative">
+        <div className="sticky top-[24px] h-[calc(100vh-48px)] overflow-hidden">
           <TableOfContents outline={outline} />
         </div>
       </div>

@@ -8,9 +8,9 @@ describe('Chat Mode Resolver', () => {
     expect(MODEL_REGISTRY.standard.id).toBe('nvidia/nemotron-3-ultra-550b-a55b:free');
   });
 
-  it('should resolve coding mode to kimi', () => {
-    expect(resolveModel('coding')).toBe('moonshotai/kimi-k2.6:free');
-    expect(MODEL_REGISTRY.coding.id).toBe('moonshotai/kimi-k2.6:free');
+  it('should resolve coding mode to cohere', () => {
+    expect(resolveModel('coding')).toBe('cohere/north-mini-code:free');
+    expect(MODEL_REGISTRY.coding.id).toBe('cohere/north-mini-code:free');
   });
 
   it('should fallback to standard mode for unknown modes', () => {

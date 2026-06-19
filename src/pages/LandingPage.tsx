@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Command, Sun, Moon } from "lucide-react";
 import { useSettingsStore } from "../store/settings";
+import { DotGrid } from "../components/ui/dot-grid";
 
 
 export const LandingPage: React.FC = () => {
@@ -51,42 +52,36 @@ export const LandingPage: React.FC = () => {
       </nav>
 
       {/* Hero Section */}
-      <main className="max-w-[1300px] mx-auto px-6 pt-20 md:pt-28 pb-32">
-        <div className="max-w-3xl mb-14">
-          <h1 className="text-[2.5rem] md:text-[2.5rem] lg:text-[2.5rem] font-sans font-medium leading-[1.05] tracking-tight text-[var(--textPrimary)] mb-8 pt-32">
-            Built to make you <br className="hidden md:block" />
-            extraordinarily productive
-          </h1>
+      <main className="relative w-full overflow-hidden">
+        {/* Interactive Dot Grid Background */}
+        <DotGrid className="top-0 left-0" />
+        
+        {/* Gradient Overlay to fade out at bottom */}
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--background)] to-transparent pointer-events-none" />
 
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <button
-              onClick={handleTryMemoryBase}
-              className={`w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium rounded-full flex items-center justify-center gap-2 transition-colors duration-200 ease-in-out ${themeMode === 'light' ? 'bg-[#0D0D0D] text-[#FFFFFF] hover:bg-[#262626]' : 'bg-[var(--textPrimary)] text-[var(--background)] hover:bg-[var(--textSecondary)] text-black'}`}
-            >
-              Try MemoryBase <ArrowUpRight className="w-5 h-5 ml-1" />
-            </button>
-            <button
-              onClick={() => navigate('/docs')}
-              className="w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium bg-[var(--surfaceSecondary)] text-[var(--textPrimary)] rounded-full hover:bg-[var(--surface)] transition-colors flex items-center justify-center gap-2 border border-transparent"
-            >
-              Read Docs <ArrowRight className="w-5 h-5 ml-1" />
-            </button>
+        <div className="relative max-w-[1300px] mx-auto px-6 pt-32 md:pt-48 pb-32">
+          <div className="max-w-3xl mb-14">
+            <h1 className="text-[2.5rem] md:text-[2.5rem] lg:text-[2.5rem] font-sans font-medium leading-[1.05] tracking-tight text-[var(--textPrimary)] mb-8">
+              Built to make you <br className="hidden md:block" />
+              extraordinarily productive
+            </h1>
+
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <button
+                onClick={handleTryMemoryBase}
+                className={`w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium rounded-full flex items-center justify-center gap-2 transition-colors duration-200 ease-in-out ${themeMode === 'light' ? 'bg-[#0D0D0D] text-[#FFFFFF] hover:bg-[#262626]' : 'bg-[var(--textPrimary)] text-[var(--background)] hover:bg-[var(--textSecondary)] text-black'}`}
+              >
+                Try MemoryBase <ArrowUpRight className="w-5 h-5 ml-1" />
+              </button>
+              <button
+                onClick={() => navigate('/docs')}
+                className="w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium bg-[var(--surfaceSecondary)] text-[var(--textPrimary)] rounded-full hover:bg-[var(--surface)] transition-colors flex items-center justify-center gap-2 border border-transparent"
+              >
+                Read Docs <ArrowRight className="w-5 h-5 ml-1" />
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Hero Image */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full mt-10 rounded-xl overflow-hidden shadow-2xl flex justify-center"
-        >
-          <img
-            src="/heroimg.png"
-            alt="MemoryBase Interface"
-            className="w-full max-w-[1400px] object-cover block"
-          />
-        </motion.div>
       </main>
 
 

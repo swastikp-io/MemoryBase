@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { WelcomeScreen } from "./WelcomeScreen";
-import { ChatInput } from "./ChatInput";
+import { motion } from "motion/react";
+import { ChatLandingPage } from "./chat/ChatLandingPage";
+import { ChatPromptInput as ChatInput } from "./chat/ChatPromptInput";
 import { ChatMessage } from "./ChatMessage";
 import { Message } from "../store/chatStore";
 import { useChatStore } from "../store/chatStore";
+import { useReasoningStore } from "../store/reasoningStore";
 import { useSettingsStore } from "../store/settings";
 
 import { DocumentOutline } from "./markdown/DocumentOutline";
@@ -11,10 +13,14 @@ import { ChatMode } from "../lib/models/modes";
 
 export const MainChat: React.FC = () => {
   const { chats, activeChatId, messages: currentMessages, loadChat, createChat, saveMessage, addMessageOptimistic, updateMessageContent, renameChat, updateChatMode } = useChatStore();
+  const { addStep, updateStep, clearSteps } = useReasoningStore();
   const settings = useSettingsStore();
   const token = "mock-token";
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedMode, setSelectedMode] = useState<ChatMode>('standard');
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [pendingResearchPlan, setPendingResearchPlan] = useState<any | null>(null);
+  const [pendingResearchParams, setPendingResearchParams] = useState<any>(null);
 
   useEffect(() => {
     const inputContainer = document.getElementById('chat-input-container');
@@ -82,6 +88,7 @@ export const MainChat: React.FC = () => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     setIsStreaming(true);
+    clearSteps();
     let fullResponse = "";
 
     try {
@@ -142,7 +149,7 @@ export const MainChat: React.FC = () => {
                 }
                 
                 if (data.isSearchingWeb) {
-                  updateMessageContent(modelMessageId, "", false, true);
+                  updateMessageContent(modelMessageId, "", true, true);
                 }
                 if (data.text) {
                   fullResponse += data.text;
@@ -151,13 +158,24 @@ export const MainChat: React.FC = () => {
                   updateMessageContent(modelMessageId, "\n\n**Error:** " + data.error, true);
                 }
                 if (data.reasoning) {
-                  updateMessageContent(modelMessageId, "", false, undefined, data.reasoning);
+                  updateMessageContent(modelMessageId, "", true, undefined, data.reasoning);
+                }
+                if (data.reasoningStep) {
+                  const currentState = useReasoningStore.getState();
+                  const exists = currentState.steps.some(e => e.id === data.reasoningStep.id);
+                  if (exists) {
+                    updateStep(data.reasoningStep.id, data.reasoningStep);
+                  } else {
+                    addStep(data.reasoningStep);
+                  }
+                  // sync to message
+                  updateMessageContent(modelMessageId, "", true, undefined, undefined, undefined, undefined, useReasoningStore.getState().steps);
                 }
                 if (data.research) {
-                  updateMessageContent(modelMessageId, "", false, undefined, undefined, data.research);
+                  updateMessageContent(modelMessageId, "", true, undefined, undefined, data.research);
                 }
                 if (data.sources) {
-                  updateMessageContent(modelMessageId, "", false, false, undefined, undefined, data.sources);
+                  updateMessageContent(modelMessageId, "", true, false, undefined, undefined, data.sources);
                 }
               } catch (e) {
               }
@@ -179,7 +197,7 @@ export const MainChat: React.FC = () => {
       } else if (error.name === "AbortError") {
         updateMessageContent(modelMessageId, "\n\n*Generation stopped.*", true);
         if (selectedMode === 'research') {
-          updateMessageContent(modelMessageId, "", false, undefined, undefined, { status: 'cancelled' });
+          updateMessageContent(modelMessageId, "", true, undefined, undefined, { status: 'cancelled' });
         }
       } else if (error.message === "No response body" || error.message.includes("fetch")) {
         updateMessageContent(modelMessageId, "\n\n*Connection lost. Please retry.*", true);
@@ -200,6 +218,36 @@ export const MainChat: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, images?: string[], webSearchEnabled?: boolean) => {
+    if (selectedMode === 'research') {
+      setIsGeneratingPlan(true);
+      try {
+        const response = await fetch("/api/research/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: content })
+        });
+        if (!response.ok) throw new Error("Failed to generate plan");
+        const plan = await response.json();
+        setPendingResearchPlan(plan);
+        setPendingResearchParams({ content, images, webSearchEnabled });
+        
+        // Execute the message immediately after generating the plan 
+        // since the plan approval UI is currently missing
+        executeNormalMessage(content, images, webSearchEnabled);
+      } catch (e) {
+        console.error(e);
+        // Fallback to normal execution if planning fails
+        executeNormalMessage(content, images, webSearchEnabled);
+      } finally {
+        setIsGeneratingPlan(false);
+      }
+      return;
+    }
+
+    executeNormalMessage(content, images, webSearchEnabled);
+  };
+
+  const executeNormalMessage = async (content: string, images?: string[], webSearchEnabled?: boolean) => {
     let chatIdToUse = activeChatId;
     
     if (!chatIdToUse) {
@@ -218,10 +266,7 @@ export const MainChat: React.FC = () => {
       webSearchUsed: webSearchEnabled
     };
     
-    // Optimistic UI update
     addMessageOptimistic(newUserMessage);
-    
-    // Save to DB
     await saveMessage(chatIdToUse, 'user', content, webSearchEnabled);
 
     const modelMessageId = (Date.now() + 1).toString();
@@ -293,47 +338,70 @@ export const MainChat: React.FC = () => {
 
 
   return (
-    <>
-      {outlineContent && <DocumentOutline content={outlineContent} />}
-
-      <div 
-        id="chat-scroll-container"
-        className="flex-1 overflow-y-auto pt-4 flex flex-col relative w-full scrollbar-thin scrollbar-thumb-border-color hover:scrollbar-thumb-text-secondary"
-        style={{ paddingBottom: 'calc(var(--input-height, 120px) + 40px + env(safe-area-inset-bottom))' }}
-      >
+    <div className="flex w-full h-full relative overflow-hidden">
+      {/* Main Content Area */}
+      <div className="flex-1 relative flex flex-col min-w-0">
         {currentMessages.length === 0 ? (
-          <WelcomeScreen />
-        ) : (
-          <div className="flex flex-col w-full pb-8">
-            {currentMessages.filter(msg => msg.role !== 'system').map((msg, index, arr) => (
-              <ChatMessage
-                key={msg.id}
-                id={msg.id}
-                role={msg.role as "user" | "model"}
-                content={msg.content}
-                images={msg.images}
-                isGenerating={isStreaming && index === arr.length - 1 && msg.role === "model"}
-                isSearchingWeb={msg.isSearchingWeb}
-                reasoning={msg.reasoning}
-                research={msg.research}
-                sources={msg.sources}
-                mode={selectedMode}
-                onEdit={isStreaming ? undefined : handleEditMessage}
-              />
-            ))}
-            <div ref={messagesEndRef} />
+          <div className="flex-1 overflow-y-auto">
+            <ChatLandingPage onSelectSuggestion={(suggestion) => handleSendMessage(suggestion)}>
+              <motion.div layoutId="prompt-input-container" className="w-full">
+                <ChatInput isGeneratingPlan={isGeneratingPlan}
+                  onSendMessage={handleSendMessage}
+                  onStopStreaming={stopStreaming}
+                  isStreaming={isStreaming}
+                  selectedMode={selectedMode}
+                  onSelectMode={handleSelectMode}
+                />
+              </motion.div>
+            </ChatLandingPage>
           </div>
+        ) : (
+          <>
+            <div 
+              id="chat-scroll-container"
+              className="flex-1 overflow-y-auto pt-4 flex flex-col relative w-full scrollbar-thin scrollbar-thumb-border-color hover:scrollbar-thumb-text-secondary"
+            >
+              <div className="flex flex-col w-full pb-8">
+                {currentMessages.filter(msg => msg.role !== 'system').map((msg, index, arr) => (
+                  <ChatMessage
+                    key={msg.id}
+                    id={msg.id}
+                    role={msg.role as "user" | "model"}
+                    content={msg.content}
+                    images={msg.images}
+                    isGenerating={isStreaming && index === arr.length - 1 && msg.role === "model"}
+                    isSearchingWeb={msg.isSearchingWeb}
+                    reasoning={msg.reasoning}
+                    reasoningSteps={msg.reasoningSteps}
+                    research={msg.research}
+                    sources={msg.sources}
+                    mode={selectedMode}
+                    onEdit={isStreaming ? undefined : handleEditMessage}
+                  />
+                ))}
+                {/* Spacer to prevent content from hiding behind the absolute chat input */}
+                <div style={{ height: 'calc(var(--input-height, 120px) + 40px + env(safe-area-inset-bottom))' }} className="w-full flex-shrink-0" />
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            <motion.div layoutId="prompt-input-container" className="absolute left-0 right-0 bottom-0 pb-5 pt-2 z-20 pointer-events-none px-3 md:px-5">
+              <div className="max-w-[800px] mx-auto w-full">
+                <ChatInput isGeneratingPlan={isGeneratingPlan}
+                  onSendMessage={handleSendMessage}
+                  onStopStreaming={stopStreaming}
+                  isStreaming={isStreaming}
+                  selectedMode={selectedMode}
+                  onSelectMode={handleSelectMode}
+                />
+              </div>
+            </motion.div>
+          </>
         )}
       </div>
 
-      <ChatInput
-        onSendMessage={handleSendMessage}
-        onStopStreaming={stopStreaming}
-        isStreaming={isStreaming}
-        isCentered={currentMessages.length === 0}
-        selectedMode={selectedMode}
-        onSelectMode={handleSelectMode}
-      />
-    </>
+      {/* Table of Contents Sidebar */}
+      {outlineContent && <DocumentOutline content={outlineContent} />}
+    </div>
   );
 };

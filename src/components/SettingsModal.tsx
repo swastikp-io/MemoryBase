@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings as SettingsIcon, X, User, Palette, Brain, Lock, Database, Sliders, HelpCircle } from 'lucide-react';
+import { Settings as SettingsIcon, X, User, Palette, Brain, Lock, Database, Sliders, HelpCircle, AlertCircle } from 'lucide-react';
 import { useSettingsStore, SettingsState } from '../store/settings';
 import { GeneralSettings } from '../settings/GeneralSettings';
 import { HelpCentreSettings } from '../settings/HelpCentreSettings';
 import { AISettings } from '../settings/AISettings';
+import { Alert, AlertDescription } from './ui/alert';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -209,16 +210,19 @@ const PersonalizationSettings = ({ settings }: { settings: SettingsState }) => (
 
 const PrivacySettings = ({ settings }: { settings: SettingsState }) => {
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   const handleDeleteAccount = async () => {
     if (!window.confirm("Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be erased.")) return;
 
     setIsDeleting(true);
+    setError(null);
     try {
       localStorage.clear();
       window.location.href = '/';
     } catch (err) {
       console.error(err);
+      setError("Failed to delete account. Please try again.");
       setIsDeleting(false);
     }
   };
@@ -226,6 +230,13 @@ const PrivacySettings = ({ settings }: { settings: SettingsState }) => {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <SectionTitle title="Privacy & Security" description="Control how your data is used." />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="space-y-4">
         <ToggleRow

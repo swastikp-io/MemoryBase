@@ -7,13 +7,18 @@ import "katex/dist/katex.min.css";
 import { Copy, Check, Bot, ThumbsUp, ThumbsDown, Globe, Edit2, Volume2, Square } from "lucide-react";
 import { useSettingsStore } from "../store/settings";
 import { CodeBlock } from "./CodeBlock";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { HeadingRenderer } from "./markdown/HeadingRenderer";
 import { AnchorLink } from "./markdown/AnchorLink";
 import { FileTree } from "./markdown/FileTree";
 import { ReasoningPanel } from "./reasoning/ReasoningPanel";
+import { TypingLoader } from "./chat/TypingLoader";
 import { ReasoningPhase, ResearchSession } from "../store/chatStore";
-import { ResearchSessionView } from "./research/ResearchSessionView";
+import { ReasoningStep } from "../store/reasoningStore";
+import { ReportExport } from "./research/ReportExport";
+import { ShareButton } from "./ui/share-button";
+
+
 
 interface ChatMessageProps {
   id: string;
@@ -26,10 +31,11 @@ interface ChatMessageProps {
   research?: ResearchSession;
   mode?: string;
   sources?: Array<{ title: string; url: string; snippet?: string }>;
+  reasoningSteps?: ReasoningStep[];
   onEdit?: (id: string, newContent: string) => void;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, images, isGenerating, isSearchingWeb, reasoning, research, mode, sources, onEdit }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, images, isGenerating, isSearchingWeb, reasoning, research, mode, sources, reasoningSteps, onEdit }) => {
   const isUser = role === "user";
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -215,7 +221,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
       transition={{ duration: 0.2 }}
       className={`flex w-full justify-center px-4 md:px-8 py-3 sm:py-5`}
     >
-      <div className="w-full max-w-[880px] mx-auto flex flex-col">
+      <div className="w-full max-w-[950px] mx-auto flex flex-col">
         {isUser ? (
           <div className="flex justify-end w-full group relative">
             <div className="max-w-[90%] sm:max-w-[70%] flex flex-col items-end">
@@ -273,7 +279,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
           </div>
         ) : (
           <div className="flex flex-col group w-full text-text-primary text-base leading-relaxed">
-            <div className="markdown-body w-full">
+            <div id={`markdown-body-${id}`} className="markdown-body w-full">
               <style>{`
                 .katex-display {
                   margin: 1.5em 0;
@@ -295,59 +301,50 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                 </div>
               )}
 
-              {reasoning && (
-                <ReasoningPanel reasoning={reasoning} />
+              {(reasoning || (reasoningSteps && reasoningSteps.length > 0)) && (
+                <ReasoningPanel reasoning={reasoning} steps={reasoningSteps} />
               )}
 
-              {research && (
-                <ResearchSessionView 
-                  session={research} 
-                  isGenerating={isGenerating}
-                  onCancel={() => {
-                    // Triggers the abort logic upstream if streaming
-                    if (isGenerating) {
-                      window.dispatchEvent(new CustomEvent('abort-research'));
-                    }
-                  }} 
+
+              
+              <AnimatePresence mode="wait">
+                {isGenerating && !processedContent ? (
+                  <motion.div
+                    key="loader"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <TypingLoader />
+                  </motion.div>
+                ) : processedContent ? (
+                  <motion.div
+                    key="content"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Markdown 
+                      remarkPlugins={[remarkGfm, remarkMath]} 
+                      rehypePlugins={[rehypeKatex]}
+                      components={markdownComponents}
+                    >
+                      {processedContent}
+                    </Markdown>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
+
+
+              {mode === 'research' && role === 'model' && content && (
+                <ReportExport 
+                  content={content} 
+                  title={research?.title}
+                  sources={sources} 
+                  isGenerating={isGenerating} 
                 />
-              )}
-              
-              {processedContent && (
-                <Markdown 
-                  remarkPlugins={[remarkGfm, remarkMath]} 
-                  rehypePlugins={[rehypeKatex]}
-                  components={markdownComponents}
-                >
-                  {processedContent}
-                </Markdown>
-              )}
-              
-              {isGenerating && (
-                <div className="flex items-center gap-1.5 h-6 mt-2">
-                  <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "0ms" }}></div>
-                  <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "150ms" }}></div>
-                  <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" style={{ animationDelay: "300ms" }}></div>
-                </div>
-              )}
-
-              {sources && sources.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-border-color w-full">
-                  <h4 className="text-sm font-semibold text-text-primary mb-3">Sources</h4>
-                  <div className="flex flex-col gap-2">
-                    {sources.map((s, i) => {
-                      let domain = "Link";
-                      try {
-                        domain = new URL(s.url).hostname.replace('www.', '');
-                      } catch(e) {}
-                      return (
-                        <a key={i} href={s.url} target="_blank" rel="noreferrer" className="flex flex-col justify-center gap-0.5 text-sm text-text-primary hover:text-[var(--accent)] hover:bg-[var(--surfaceSecondary)] px-3 py-2 rounded-lg transition-colors border border-[var(--border)] w-full max-w-full group/source">
-                          <span className="font-medium truncate transition-colors">{s.title || domain}</span>
-                          <span className="text-xs text-text-secondary truncate transition-colors group-hover/source:text-[var(--accent)]">{domain}</span>
-                        </a>
-                      );
-                    })}
-                  </div>
-                </div>
               )}
             </div>
 
@@ -386,6 +383,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                 >
                   <ThumbsDown className="w-4 h-4" />
                 </button>
+                <ShareButton size="sm" icon={true} contentToShare={content} />
               </div>
             )}
           </div>

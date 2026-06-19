@@ -3,6 +3,7 @@ import { useChatStore } from '../store/chatStore';
 import { Plus, MessageSquare, PanelLeftClose, PanelLeft, Search, LayoutGrid, Sparkles, Settings as SettingsIcon, SquarePen, X, MoreHorizontal, Pencil, Trash2, Command, Menu, LogOut } from 'lucide-react';
 import { DeleteChatModal } from './DeleteChatModal';
 import { useSettingsStore } from '../store/settings';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 import { useSearchStore } from '../store/search';
 import { useRef, useEffect } from 'react';
@@ -81,13 +82,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
             <div className="flex items-center text-text-secondary px-1 hover:text-text-primary transition-colors cursor-pointer">
               <Command className="w-5 h-5" />
             </div>
-            <button
-              onClick={toggleSidebar}
-              className="p-1.5 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
-              title="Collapse menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleSidebar}
+                  className="p-1.5 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Collapse menu</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Navigation / Actions */}
@@ -224,13 +231,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
                 <span className="text-[14px] font-medium text-text-primary">{userName}</span>
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={onOpenSettings}
-                  className="p-2 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-full transition-colors"
-                  title="Settings"
-                >
-                  <SettingsIcon className="w-[18px] h-[18px]" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={onOpenSettings}
+                      className="p-2 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-full transition-colors"
+                    >
+                      <SettingsIcon className="w-[18px] h-[18px]" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Settings</p>
+                  </TooltipContent>
+                </Tooltip>
 
               </div>
             </div>
@@ -239,39 +252,63 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
       ) : (
         <div className="flex flex-col h-full w-full items-center py-4">
           {/* Top Logo / Toggle */}
-          <button
-            onClick={toggleSidebar}
-            className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-primary hover:text-text-primary mb-6"
-            title="Expand menu"
-          >
-            <Command className="w-6 h-6" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-primary hover:text-text-primary mb-6"
+              >
+                <Command className="w-6 h-6" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Expand menu</p>
+            </TooltipContent>
+          </Tooltip>
 
           {/* Actions */}
           <div className="flex flex-col gap-4 w-full items-center">
-            <button
-              onClick={() => useChatStore.setState({ activeChatId: null, messages: [] })}
-              className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
-              title="New Chat"
-            >
-              <SquarePen className="w-5 h-5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => useChatStore.setState({ activeChatId: null, messages: [] })}
+                  className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
+                >
+                  <SquarePen className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>New Chat</p>
+              </TooltipContent>
+            </Tooltip>
 
-            <button
-              onClick={() => searchStore.open()}
-              className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
-              title="Search"
-            >
-              <Search className="w-5 h-5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => searchStore.open()}
+                  className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Search</p>
+              </TooltipContent>
+            </Tooltip>
 
-            <button
-              onClick={toggleSidebar}
-              className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
-              title="Chats"
-            >
-              <MessageSquare className="w-5 h-5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleSidebar}
+                  className="p-2 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors text-text-secondary hover:text-text-primary"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Chats</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Bottom User Area */}

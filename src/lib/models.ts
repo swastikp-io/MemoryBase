@@ -18,8 +18,8 @@ export interface ModelDefinition {
 
 export const MODEL_REGISTRY: ModelDefinition[] = [
   {
-    id: "moonshotai/kimi-k2.6:free",
-    displayName: "Kimi K2.6",
+    id: "cohere/north-mini-code:free",
+    displayName: "Coding",
     description: "Advanced coding, software engineering, UI generation, and agentic development model.",
     provider: "OpenRouter",
     category: "Coding & Engineering",

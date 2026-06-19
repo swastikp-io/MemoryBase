@@ -215,7 +215,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     transition={{ duration: 0.15 }}
                     className="absolute bottom-[calc(100%+12px)] right-0 w-48 bg-[var(--surface)] border border-[var(--border)] shadow-2xl rounded-2xl py-2 z-50 flex flex-col"
                   >
-                    {['Deep research', 'Deep reasoning', 'Kimi K2.6'].map((model) => (
+                    {['Deep research', 'Deep reasoning', 'Coding'].map((model) => (
                       <button
                         key={model}
                         type="button"

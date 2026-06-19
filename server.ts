@@ -298,7 +298,9 @@ async function startServer() {
 }
 
 // Only run the server if this file is executed directly (not imported), or if it's explicitly started
-const isServerless = !!process.env.LAMBDA_TASK_ROOT || !!process.env.VERCEL;
-if (!isServerless) {
+const isServerless = !!process.env.LAMBDA_TASK_ROOT || !!process.env.VERCEL || !!process.env.NETLIFY;
+if (isServerless) {
+  setupRoutes();
+} else {
   startServer();
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider } from '../theme/ThemeProvider';
-import { DocumentOutline } from '../components/markdown/DocumentOutline';
+
 import { describe, test, expect, beforeAll } from 'vitest';
 
 // A mock component that simulates markdown rendering for lists and strong tags

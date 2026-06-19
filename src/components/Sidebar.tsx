@@ -222,22 +222,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onOpenS
           </div>
 
           {/* Bottom User Area */}
-          <div className="p-3 mt-auto">
-            <div className="flex items-center justify-between w-full p-1.5 hover:bg-[var(--surface)] rounded-full transition-colors group">
-              <div className="flex items-center gap-3">
+          <div className="p-3 mt-auto relative z-10">
+            <div className="relative flex items-center justify-between w-full p-1.5 hover:bg-[var(--surface)] rounded-full transition-colors group overflow-hidden z-20">
+              <div className="flex items-center gap-3 relative z-30">
                 <div className="w-8 h-8 rounded-full bg-[var(--accentMuted)] text-[var(--accent)] flex items-center justify-center font-semibold text-[14px]">
                   {userInitial}
                 </div>
                 <span className="text-[14px] font-medium text-text-primary">{userName}</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 relative z-30">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       onClick={onOpenSettings}
-                      className="p-2 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-full transition-colors"
+                      className="relative flex items-center justify-center w-10 h-10 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-full transition-all duration-200 border border-transparent hover:border-[var(--border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] hover:shadow-sm active:scale-95 overflow-hidden group/settings"
+                      aria-label="Settings"
                     >
-                      <SettingsIcon className="w-[18px] h-[18px]" />
+                      <SettingsIcon className="w-[18px] h-[18px] relative z-10 transition-transform duration-300 group-hover/settings:rotate-45" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">

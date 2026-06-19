@@ -8,7 +8,7 @@ import { useChatStore } from "../store/chatStore";
 import { useReasoningStore } from "../store/reasoningStore";
 import { useSettingsStore } from "../store/settings";
 
-import { DocumentOutline } from "./markdown/DocumentOutline";
+
 import { ChatMode } from "../lib/models/modes";
 
 export const MainChat: React.FC = () => {
@@ -330,13 +330,6 @@ export const MainChat: React.FC = () => {
     }
   };
 
-  const latestModelMessage = currentMessages
-    .filter(m => m.role === 'model')
-    .slice(-1)[0];
-  const outlineContent = latestModelMessage ? latestModelMessage.content : '';
-
-
-
   return (
     <div className="flex w-full h-full relative overflow-hidden">
       {/* Main Content Area */}
@@ -399,9 +392,6 @@ export const MainChat: React.FC = () => {
           </>
         )}
       </div>
-
-      {/* Table of Contents Sidebar */}
-      {outlineContent && <DocumentOutline content={outlineContent} />}
     </div>
   );
 };

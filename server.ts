@@ -1,6 +1,7 @@
 import { executeWithFallbacks } from './server/utils/llmValidation.ts';
 import express from "express";
 import path from "path";
+import { createServer as createViteServer } from "vite";
 import OpenAI, { toFile } from "openai";
 import dotenv from "dotenv";
 import { ReasoningController } from "./server/orchestrator/reasoningController.ts";
@@ -28,15 +29,6 @@ const checkEnvironment = (): string | null => {
 
 export const app = express();
 
-// Vercel body-parser workaround:
-// When deployed on Vercel, @vercel/node parses the body automatically.
-// If it's already parsed, tell express.json() to skip parsing so it doesn't hang.
-app.use((req, res, next) => {
-  if (req.body && Object.keys(req.body).length > 0) {
-    (req as any)._body = true; // Prevents express.json() from hanging on consumed stream
-  }
-  next();
-});
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -44,6 +36,24 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 export function setupRoutes() {
 
+  // Diagnostic middleware for request parsing validation
+  if (process.env.NODE_ENV !== "production") {
+    app.use("/api", (req, res, next) => {
+      console.log("========== REQUEST DEBUG ==========");
+      console.log(`Endpoint: ${req.method} ${req.url}`);
+      console.log("Content-Type:", req.headers["content-type"]);
+      console.log("Body Type:", typeof req.body);
+      console.log("Is Buffer:", Buffer.isBuffer(req.body));
+      console.log("Is Array:", Array.isArray(req.body));
+      console.log("Keys:", req.body ? Object.keys(req.body).join(", ") : "N/A");
+      if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+        console.log("Messages Count:", req.body?.messages?.length);
+        console.log("Mode:", req.body?.mode);
+      }
+      console.log("==================================");
+      next();
+    });
+  }
 
   // API route for chat message streaming
   app.post("/api/chat", async (req, res) => {
@@ -56,7 +66,7 @@ export function setupRoutes() {
       console.error("[POST /api/chat] Validation failed: messages array is missing or invalid.");
       return res.status(400).json({ error: "Messages array is required" });
     }
-    
+
     console.log(`[POST /api/chat] Processing request. Mode: ${mode}, Messages: ${messages.length}, WebSearch: ${Boolean(webSearch)}`);
 
     try {
@@ -64,7 +74,7 @@ export function setupRoutes() {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders();
-      
+
       const envError = checkEnvironment();
       if (envError) {
         console.error(`[POST /api/chat] Environment Validation Error: ${envError}`);
@@ -93,7 +103,7 @@ export function setupRoutes() {
           errorMessage = "Error: " + error.message;
         }
       }
-      
+
       // Ensure we don't crash and we actually stream the error down to the client.
       try {
         res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
@@ -115,7 +125,7 @@ export function setupRoutes() {
     try {
       const TITLE_MODEL = process.env.TITLE_GENERATION_MODEL || "openai/gpt-oss-120b:free";
       const FALLBACK_MODEL = process.env.TITLE_GENERATION_FALLBACK_MODEL || "google/gemma-3-27b-it:free";
-      
+
       const localFallbackTitle = firstMessage.trim().split(/\s+/).slice(0, 5).join(" ") || "New Chat";
 
       const generatedTitle = await executeWithFallbacks(
@@ -152,7 +162,7 @@ export function setupRoutes() {
 
 
 
-  
+
   app.post("/api/research/plan", async (req, res) => {
     const { query } = req.body;
     if (!query) {
@@ -162,7 +172,7 @@ export function setupRoutes() {
     try {
       const RESEARCH_MODEL = process.env.PRIMARY_RESEARCH_MODEL || "openai/gpt-oss-120b:free";
       const FALLBACK_MODEL = "google/gemma-3-27b-it:free";
-      
+
       const systemPrompt = "You are an expert research planner.\n" +
         "Analyze the user's research query and generate a structured research plan.\n" +
         "Return ONLY a valid JSON object matching this schema:\n" +
@@ -227,7 +237,7 @@ export function setupRoutes() {
     }
   });
 
-app.post("/api/canvas/edit", async (req, res) => {
+  app.post("/api/canvas/edit", async (req, res) => {
 
     const { selectedText, instruction, model } = req.body;
     if (!selectedText || !instruction) {
@@ -278,7 +288,6 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

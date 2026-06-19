@@ -5,6 +5,9 @@ setupRoutes();
 
 // Also increase maxDuration to 60s for AI streaming
 export const config = {
+  api: {
+    bodyParser: false,
+  },
   maxDuration: 60,
 };
 

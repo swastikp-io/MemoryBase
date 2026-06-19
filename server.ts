@@ -11,7 +11,7 @@ import { resolveModel } from "./src/lib/models/resolver.ts";
 
 dotenv.config();
 
-const appUrl = process.env.APP_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY || "dummy_key",
@@ -29,15 +29,7 @@ const checkEnvironment = (): string | null => {
 
 export const app = express();
 
-// Vercel body-parser workaround:
-// When deployed on Vercel, @vercel/node parses the body automatically.
-// If it's already parsed, tell express.json() to skip parsing so it doesn't hang.
-app.use((req, res, next) => {
-  if (req.body && Object.keys(req.body).length > 0) {
-    (req as any)._body = true; // Prevents express.json() from hanging on consumed stream
-  }
-  next();
-});
+
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -298,7 +290,7 @@ async function startServer() {
 }
 
 // Only run the server if this file is executed directly (not imported), or if it's explicitly started
-const isServerless = !!process.env.LAMBDA_TASK_ROOT || !!process.env.VERCEL || !!process.env.NETLIFY;
+const isServerless = !!process.env.LAMBDA_TASK_ROOT || !!process.env.NETLIFY;
 if (isServerless) {
   setupRoutes();
 } else {

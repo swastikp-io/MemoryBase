@@ -425,7 +425,7 @@ Sections: [Section 1, Section 2, ...]`;
       } else {
         let errorMsg = errorObj?.message || "Unknown";
         if (errorObj?.status === 401 || errorMsg.includes("401") || errorMsg.includes("Missing Authentication header") || errorMsg.includes("Invalid Authentication header")) {
-          errorMsg = "Unauthorized. Please ensure your OpenRouter API Key is entered correctly in the .env file or Vercel Environment Variables.";
+          errorMsg = "Unauthorized. Please ensure your OpenRouter API Key is entered correctly in the .env file.";
         }
 
         const errorResponse = "\\n\\n*(Error executing reasoning network: " + errorMsg + ")*";

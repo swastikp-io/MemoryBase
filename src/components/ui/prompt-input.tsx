@@ -8,7 +8,7 @@ const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
     <div
       ref={ref}
       className={cn(
-        "relative flex flex-col w-full bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm transition-colors duration-300 overflow-hidden focus-within:ring-1 focus-within:ring-[var(--border-hover)]",
+        "relative flex flex-col w-full chat-container",
         className
       )}
       {...props}
@@ -57,7 +57,7 @@ const PromptInputTextarea = React.forwardRef<HTMLTextAreaElement, PromptInputTex
       <textarea
         ref={internalRef}
         className={cn(
-          "w-full bg-transparent resize-none border-0 focus:ring-0 text-[15px] outline-none min-h-[56px] max-h-[200px] px-4 py-4 scrollbar-thin scrollbar-thumb-border-color placeholder:text-text-secondary placeholder:transition-opacity text-text-primary",
+          "w-full bg-transparent resize-none border-0 focus:ring-0 outline-none min-h-[56px] max-h-[200px] px-6 py-5 scrollbar-thin scrollbar-thumb-border-color placeholder:transition-opacity chat-textarea",
           className
         )}
         rows={1}
@@ -77,7 +77,7 @@ const PromptInputFooter = React.forwardRef<HTMLDivElement, PromptInputFooterProp
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("flex items-center justify-between px-3 py-2 gap-2 mt-auto", className)}
+      className={cn("flex items-center justify-between px-3 pb-3 pt-0 gap-2 mt-auto", className)}
       {...props}
     />
   )
@@ -128,7 +128,7 @@ const PromptInputAttachment = React.forwardRef<HTMLDivElement, PromptInputAttach
         <button
           type="button"
           onClick={onRemove}
-          className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+          className="absolute top-1 right-1 p-0.5 rounded-full bg-[rgba(0,0,0,0.5)] text-[#fff] opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[rgba(0,0,0,0.7)]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 6 6 18"/><path d="m6 6 12 12"/>

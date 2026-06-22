@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Plus, ArrowUp, X, Square, Image, Globe, ChevronDown, Check, Search } from "lucide-react";
 import { useSettingsStore } from "../../store/settings";
 import { motion, AnimatePresence } from "motion/react";
+import { Tooltip } from "../ui/tooltip";
 
 interface ChatInputProps {
   onSendMessage: (content: string, images?: string[], searchEnabled?: boolean) => void;
@@ -115,22 +116,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           className={`flex items-center bg-[var(--surface)] border border-[var(--border)] px-3 py-2 transition-colors duration-300`}
           style={{ borderRadius: 9999 }}
         >
-          <div className="relative flex-shrink-0 flex items-center justify-center text-text-primary px-2 group" ref={attachMenuRef}>
-            <button 
-              type="button"
-              onClick={() => setShowAttachMenu(!showAttachMenu)}
-              className={`p-1.5 rounded-full transition-colors ${showAttachMenu ? 'bg-[var(--surfaceSecondary)] text-text-primary' : 'hover:bg-[var(--surfaceSecondary)] text-text-secondary hover:text-text-primary'}`}
-            >
-              <Plus className="w-[22px] h-[22px]" strokeWidth={1.5} />
-            </button>
-
-            {/* Tooltip */}
-            {!showAttachMenu && (
-              <div className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap bg-[var(--surface)] text-text-primary text-[13px] font-medium px-3 py-2 rounded-xl flex items-center gap-2 shadow-lg border border-[var(--border)]">
-                Add files and more
-                <div className="bg-[var(--surfaceSecondary)] text-text-secondary px-1.5 py-0.5 rounded text-[11px] font-mono leading-none border border-[var(--border)]">/</div>
-              </div>
-            )}
+          <div className="relative flex-shrink-0 flex items-center justify-center text-text-primary px-2" ref={attachMenuRef}>
+            <Tooltip content="Add files and more">
+              <button 
+                type="button"
+                onClick={() => setShowAttachMenu(!showAttachMenu)}
+                className={`p-1.5 rounded-full transition-colors ${showAttachMenu ? 'bg-[var(--surfaceSecondary)] text-text-primary' : 'hover:bg-[var(--surfaceSecondary)] text-text-secondary hover:text-text-primary'}`}
+              >
+                <Plus className="w-[22px] h-[22px]" strokeWidth={1.5} />
+              </button>
+            </Tooltip>
 
             {/* Menu */}
             <AnimatePresence>
@@ -197,14 +192,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           <div className="flex-shrink-0 flex items-center gap-2 pr-1">
             {/* Model Selector Dropdown */}
             <div className="relative" ref={modelMenuRef}>
-              <button
-                type="button"
-                onClick={() => setShowModelMenu(!showModelMenu)}
-                className={`p-1.5 rounded-full transition-colors ${showModelMenu ? 'bg-[var(--surfaceSecondary)] text-text-primary' : 'hover:bg-[var(--surfaceSecondary)] text-text-secondary hover:text-text-primary'}`}
-                title={selectedModel}
-              >
-                <ChevronDown className="w-[20px] h-[20px]" strokeWidth={1.5} />
-              </button>
+              <Tooltip content="More tools">
+                <button
+                  type="button"
+                  onClick={() => setShowModelMenu(!showModelMenu)}
+                  className={`p-1.5 rounded-full transition-colors ${showModelMenu ? 'bg-[var(--surfaceSecondary)] text-text-primary' : 'hover:bg-[var(--surfaceSecondary)] text-text-secondary hover:text-text-primary'}`}
+                >
+                  <ChevronDown className="w-[20px] h-[20px]" strokeWidth={1.5} />
+                </button>
+              </Tooltip>
 
               <AnimatePresence>
                 {showModelMenu && (
@@ -250,18 +246,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   <Square className="w-4 h-4 fill-current" strokeWidth={3} />
                 </motion.button>
               ) : hasContent ? (
-                <motion.button
-                  key="send"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  type="submit"
-                  disabled={isStreaming}
-                  className="w-[34px] h-[34px] flex items-center justify-center rounded-full bg-[var(--accent-primary)] text-[var(--accent-fg)] transition-colors hover:opacity-90"
-                >
-                  <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
-                </motion.button>
+                <Tooltip content="Send message">
+                  <motion.button
+                    key="send"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    type="submit"
+                    disabled={isStreaming}
+                    className="w-[34px] h-[34px] flex items-center justify-center rounded-full bg-[var(--accent-primary)] text-[var(--accent-fg)] transition-colors hover:opacity-90"
+                  >
+                    <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
+                  </motion.button>
+                </Tooltip>
               ) : null}
             </AnimatePresence>
           </div>

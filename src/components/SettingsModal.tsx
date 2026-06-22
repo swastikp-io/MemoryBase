@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings as SettingsIcon, X, User, Palette, Brain, Lock, Database, Sliders, HelpCircle, AlertCircle } from 'lucide-react';
 import { useSettingsStore, SettingsState } from '../store/settings';
-import { GeneralSettings } from '../settings/GeneralSettings';
 import { HelpCentreSettings } from '../settings/HelpCentreSettings';
 import { AISettings } from '../settings/AISettings';
 import { Alert, AlertDescription } from './ui/alert';
@@ -13,11 +12,10 @@ interface SettingsModalProps {
 }
 
 const TABS = [
-  { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'ai', label: 'AI Models', icon: Brain },
   { id: 'personalization', label: 'Personalization', icon: Sliders },
-
   { id: 'privacy', label: 'Privacy', icon: Lock },
   { id: 'help', label: 'Help Centre', icon: HelpCircle },
 ];
@@ -104,11 +102,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
             <div className="flex-1 overflow-y-auto scrollbar-hide p-4 sm:p-8">
               <div className={`${activeTab === 'help' ? 'max-w-4xl' : 'max-w-2xl'} mx-auto pb-12 transition-all duration-300`}>
-                {activeTab === 'general' && (
-                  <GeneralSettings />
-                )}
                 {activeTab === 'profile' && (
                   <ProfileSettings settings={settings} />
+                )}
+                {activeTab === 'appearance' && (
+                  <AppearanceSettings settings={settings} />
                 )}
                 {activeTab === 'personalization' && (
                   <PersonalizationSettings settings={settings} />
@@ -207,6 +205,35 @@ const PersonalizationSettings = ({ settings }: { settings: SettingsState }) => (
   </motion.div>
 );
 
+
+const AppearanceSettings = ({ settings }: { settings: SettingsState }) => (
+  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <SectionTitle title="Appearance" description="Customize the look and feel of MemoryBase." />
+
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3">
+        <label className="text-[15px] font-medium text-text-primary">Theme</label>
+        <div className="grid grid-cols-3 gap-3">
+          {(['light', 'dark', 'system'] as const).map((themeOption) => (
+            <button
+              key={themeOption}
+              onClick={() => settings.updateAppearance({ theme: themeOption })}
+              className={`py-3 px-4 rounded-xl border ${
+                settings.appearance.theme === themeOption
+                  ? 'border-[var(--textPrimary)] bg-[var(--surfaceSecondary)]'
+                  : 'border-border-color bg-bg-input hover:border-[var(--textSecondary)]'
+              } flex flex-col items-center justify-center gap-2 transition-all`}
+            >
+              <span className="text-sm font-medium capitalize text-text-primary">
+                {themeOption}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  </motion.div>
+);
 
 const PrivacySettings = ({ settings }: { settings: SettingsState }) => {
   const [isDeleting, setIsDeleting] = React.useState(false);

@@ -17,7 +17,8 @@ import { ReasoningPhase, ResearchSession } from "../store/chatStore";
 import { ReasoningStep } from "../store/reasoningStore";
 import { ReportExport } from "./research/ReportExport";
 import { ShareButton } from "./ui/share-button";
-
+import { SourceList } from "./chat/SourceList";
+import { Tooltip } from "./ui/tooltip";
 
 
 interface ChatMessageProps {
@@ -226,32 +227,32 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
           <div className="flex justify-end w-full group relative">
             <div className="max-w-[90%] sm:max-w-[70%] flex flex-col items-end">
               {isEditing ? (
-                <div className="w-full bg-[var(--accent)] p-4 rounded-3xl rounded-tr-md shadow-sm min-w-[280px]">
+                <div className="w-full bg-[var(--chat-bubble-user)] p-4 rounded-3xl rounded-tr-md shadow-sm min-w-[280px]">
                   <textarea
                     autoFocus
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="w-full bg-transparent text-[var(--background)] outline-none resize-none overflow-hidden min-h-[60px] scrollbar-hide text-base leading-relaxed placeholder:text-[var(--background)]/50"
+                    className="w-full bg-transparent text-[var(--textPrimary)] outline-none resize-none overflow-hidden min-h-[60px] scrollbar-hide text-base leading-relaxed placeholder:text-[var(--textSecondary)]"
                     rows={Math.max(2, editValue.split('\n').length)}
                   />
                   <div className="flex justify-end gap-2 mt-3">
                     <button 
                       onClick={() => { setIsEditing(false); setEditValue(content); }} 
-                      className="px-3 py-1.5 text-xs font-medium text-[var(--background)]/80 hover:text-[var(--background)] transition-colors bg-black/10 rounded-full"
+                      className="px-3 py-1.5 text-xs font-medium text-[var(--textPrimary)] hover:text-white transition-colors bg-black/30 rounded-full"
                     >
                       Cancel
                     </button>
                     <button 
                       onClick={handleEditSubmit} 
-                      className="px-3 py-1.5 text-xs font-medium text-[var(--accent)] bg-[var(--background)] hover:opacity-90 transition-opacity rounded-full"
+                      className="px-3 py-1.5 text-xs font-medium text-[var(--chat-bubble-user)] bg-[var(--textPrimary)] hover:opacity-90 transition-opacity rounded-full"
                     >
                       Save & Submit
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="bg-[var(--accent)] text-[var(--background)] px-5 py-3 rounded-3xl text-base whitespace-pre-wrap shadow-sm rounded-tr-md">
+                <div className="bg-[var(--chat-bubble-user)] text-[var(--textPrimary)] px-5 py-3 rounded-3xl text-base whitespace-pre-wrap shadow-sm rounded-tr-md">
                   {images && images.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-2">
                       {images.map((img, i) => (
@@ -265,13 +266,17 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
               
               {!isEditing && !isGenerating && (
                 <div className="flex items-center gap-1 mt-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
-                  <button onClick={handleCopy} className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors" title="Copy">
-                    {isCopied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                  {onEdit && (
-                    <button onClick={() => setIsEditing(true)} className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors" title="Edit">
-                      <Edit2 className="w-3.5 h-3.5" />
+                  <Tooltip content="Copy">
+                    <button onClick={handleCopy} className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors">
+                      {isCopied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
+                  </Tooltip>
+                  {onEdit && (
+                    <Tooltip content="Edit">
+                      <button onClick={() => setIsEditing(true)} className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors">
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
               )}
@@ -346,43 +351,49 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                   isGenerating={isGenerating} 
                 />
               )}
+
+              <SourceList sources={sources} isGenerating={isGenerating} />
             </div>
 
             {!isGenerating && content && (
               <div className="flex items-center gap-2 mt-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
-                <button
-                  onClick={handleCopy}
-                  className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors flex items-center gap-1.5"
-                  title="Copy"
-                >
-                  {isCopied ? (
-                    <>
-                      <Check className="w-4 h-4 text-green-600" />
-                      <span className="text-xs text-green-600 font-medium">Copied!</span>
-                    </>
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={toggleTTS}
-                  className={`p-1.5 rounded-md transition-colors flex items-center ${isPlayingTTS ? 'text-[var(--accent)] bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20' : 'text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)]'}`}
-                  title={isPlayingTTS ? "Stop reading" : "Read aloud"}
-                >
-                  {isPlayingTTS ? <Square className="w-4 h-4 fill-current" /> : <Volume2 className="w-4 h-4" />}
-                </button>
-                <button
-                  className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors flex items-center"
-                  title="Good response"
-                >
-                  <ThumbsUp className="w-4 h-4" />
-                </button>
-                <button
-                  className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors flex items-center"
-                  title="Bad response"
-                >
-                  <ThumbsDown className="w-4 h-4" />
-                </button>
+                <Tooltip content="Copy">
+                  <button
+                    onClick={handleCopy}
+                    className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors flex items-center gap-1.5"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-600" />
+                        <span className="text-xs text-green-600 font-medium">Copied!</span>
+                      </>
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </Tooltip>
+                <Tooltip content={isPlayingTTS ? "Stop reading" : "Read aloud"}>
+                  <button
+                    onClick={toggleTTS}
+                    className={`p-1.5 rounded-md transition-colors flex items-center ${isPlayingTTS ? 'text-[var(--accent)] bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20' : 'text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)]'}`}
+                  >
+                    {isPlayingTTS ? <Square className="w-4 h-4 fill-current" /> : <Volume2 className="w-4 h-4" />}
+                  </button>
+                </Tooltip>
+                <Tooltip content="Good response">
+                  <button
+                    className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors flex items-center"
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Bad response">
+                  <button
+                    className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors flex items-center"
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                  </button>
+                </Tooltip>
                 <ShareButton size="sm" icon={true} contentToShare={content} />
               </div>
             )}

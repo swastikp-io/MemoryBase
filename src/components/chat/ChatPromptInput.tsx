@@ -1,10 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Paperclip, Brain, Search, Send, Square, FlaskConical, ChevronDown, Check, Globe } from "lucide-react";
+import { Paperclip, Brain, Search, Send, Square, FlaskConical, ChevronDown, Check, Globe, Plus, MoreHorizontal, Mic, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { useChatStore } from "../../store/chatStore";
+import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import { ChatMode } from "../../lib/models/modes";
-import { ModelSelector } from "./ModelSelector";
+import { MODEL_REGISTRY } from "../../lib/models/registry";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+} from "../ui/dropdown-menu";
 
 import {
   PromptInput,
@@ -70,6 +79,15 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({
       localStorage.removeItem(draftKey);
     }
   }, [input, images, isStreaming, onSendMessage, webSearchEnabled, draftKey]);
+
+  const handleSpeechResult = useCallback((text: string) => {
+    setInput(prev => {
+      const space = prev && !prev.endsWith(' ') ? ' ' : '';
+      return prev + space + text;
+    });
+  }, []);
+
+  const { isRecording, isSupported, toggleRecording } = useSpeechRecognition(handleSpeechResult);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter") {
@@ -164,9 +182,9 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({
             disabled={isStreaming}
           />
 
-          <PromptInputFooter>
+          <PromptInputFooter className="px-4 pb-4 pt-0">
             {/* Left Zone: Actions */}
-            <PromptInputActions>
+            <PromptInputActions className="gap-2">
               <input
                 type="file"
                 accept="image/*"
@@ -178,58 +196,70 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-text-secondary hover:text-text-primary hover:bg-[var(--surfaceSecondary)] transition-colors"
+                className="chat-toolbar-btn"
                 title="Attach files"
               >
-                <Paperclip className="w-4 h-4" strokeWidth={2} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onSelectMode(selectedMode === 'research' ? 'standard' : 'research')}
-                className={`flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[13px] font-medium transition-colors ${
-                  selectedMode === 'research'
-                    ? 'bg-blue-500/10 text-blue-500'
-                    : 'text-text-secondary hover:bg-[var(--surfaceSecondary)] hover:text-text-primary'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Research</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onSelectMode(selectedMode === 'reasoning' ? 'standard' : 'reasoning')}
-                className={`flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[13px] font-medium transition-colors ${
-                  selectedMode === 'reasoning'
-                    ? 'bg-purple-500/10 text-purple-500'
-                    : 'text-text-secondary hover:bg-[var(--surfaceSecondary)] hover:text-text-primary'
-                }`}
-              >
-                <Brain className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Reasoning</span>
+                <Plus className="w-5 h-5" strokeWidth={2.5} />
               </button>
 
               <button
                 type="button"
                 onClick={toggleWebSearch}
-                className={`flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[13px] font-medium transition-colors ${
-                  webSearchEnabled
-                    ? 'bg-blue-500/10 text-blue-500'
-                    : 'text-text-secondary hover:bg-[var(--surfaceSecondary)] hover:text-text-primary'
+                className={`flex items-center gap-2 h-10 px-4 rounded-full chat-pill ${
+                  webSearchEnabled ? 'active' : ''
                 }`}
               >
-                <Search className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Search</span>
+                <Globe className="w-[18px] h-[18px] icon" strokeWidth={2} />
+                <span className="text-[15px] font-medium pr-1">Search</span>
               </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="chat-toolbar-btn"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuContent 
+                    align="start" 
+                    sideOffset={8}
+                    className="w-52 bg-[var(--chat-bg)] border border-[var(--chat-border)] shadow-[var(--chat-shadow)] rounded-2xl py-1 z-[9999]"
+                  >
+                    {(Object.entries(MODEL_REGISTRY) as [ChatMode, { label: string }][]).map(([mode, config]) => (
+                      <DropdownMenuItem 
+                        key={mode} 
+                        onClick={() => onSelectMode(mode)}
+                        className="flex items-center justify-between h-10 px-3 mx-1 rounded-lg hover:bg-[var(--chat-hover)] transition-colors text-[14px] text-[var(--chat-text)] text-left cursor-pointer"
+                      >
+                        {config.label}
+                        {selectedMode === mode && <Check className="w-4 h-4 text-[var(--chat-text)]" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenuPortal>
+              </DropdownMenu>
             </PromptInputActions>
 
             {/* Center Zone: Spacer */}
             <div className="flex-1" />
 
-            {/* Right Zone: Model + Send */}
+            {/* Right Zone: Mic + Send */}
             <div className="flex items-center gap-2 shrink-0">
-              <ModelSelector selectedMode={selectedMode} onSelectMode={onSelectMode} />
+              {isSupported && (
+               <button
+                  type="button"
+                  onClick={toggleRecording}
+                  className={`w-10 h-10 flex items-center justify-center rounded-full chat-mic-btn ${
+                    isRecording ? '!bg-red-500/20 !text-red-500 hover:!bg-red-500/30' : ''
+                  }`}
+                  title={isRecording ? "Stop recording" : "Start recording"}
+               >
+                  <Mic className={`w-5 h-5 ${isRecording ? 'animate-pulse' : ''}`} />
+               </button>
+              )}
 
               <AnimatePresence mode="wait">
                 {isStreaming ? (
@@ -240,9 +270,9 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({
                     exit={{ scale: 0, opacity: 0 }}
                     type="button"
                     onClick={onStopStreaming}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-text-primary text-[var(--surface)] hover:opacity-90 transition-opacity shadow-sm"
+                    className="w-10 h-10 flex items-center justify-center rounded-full chat-send-btn"
                   >
-                    <Square className="w-3.5 h-3.5 fill-current" strokeWidth={3} />
+                    <Square className="w-4 h-4 fill-current" strokeWidth={3} />
                   </motion.button>
                 ) : (
                   <motion.button
@@ -253,9 +283,9 @@ export const ChatPromptInput: React.FC<ChatPromptInputProps> = ({
                     type="button"
                     onClick={handleSubmit}
                     disabled={!hasContent}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-text-primary text-[var(--surface)] hover:opacity-90 transition-opacity shadow-sm disabled:opacity-30 disabled:hover:opacity-30"
+                    className="w-10 h-10 flex items-center justify-center rounded-full chat-send-btn"
                   >
-                    <Send className="w-4 h-4" strokeWidth={2} />
+                    <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
                   </motion.button>
                 )}
               </AnimatePresence>

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Prism as SyntaxHighlighter, createElement } from 'react-syntax-highlighter';
 import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Virtuoso } from 'react-virtuoso';
-import { useSettingsStore } from '../store/settings';
+
 
 interface CodeBlockProps {
   language: string;
@@ -19,22 +19,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, code, isGenerati
   const [wrapLines, setWrapLines] = useState(true);
   const [showLineNumbers, setShowLineNumbers] = useState(false);
 
-  const { appearance } = useSettingsStore();
-  const [isSystemDark, setIsSystemDark] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    setIsSystemDark(mediaQuery.matches);
-    
-    const handler = (e: MediaQueryListEvent) => setIsSystemDark(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
-
-  const themeMode = appearance?.themeMode;
-  // If the app doesn't formally support 'system' yet, this still gracefully handles the case if it gets added
-  const isDark = (themeMode as string) === 'system' ? isSystemDark : themeMode === 'dark';
-  const syntaxStyle = isDark ? vscDarkPlus : oneLight;
+  const syntaxStyle = vscDarkPlus;
 
   const cleanCode = code.replace(/\n$/, '');
 

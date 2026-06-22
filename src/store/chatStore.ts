@@ -45,6 +45,7 @@ export interface Message {
   webSearchUsed?: boolean;
   sources?: Array<{ title: string; url: string; snippet?: string }>;
   reasoningSteps?: ReasoningStep[];
+  publicShareId?: string;
 }
 
 export interface ChatSession {
@@ -75,6 +76,7 @@ interface ChatStore {
   saveMessage: (chatId: string, role: string, content: string, webSearchUsed?: boolean) => Promise<string | null>;
   updateMessageContent: (messageId: string, content: string, append?: boolean, isSearchingWeb?: boolean, reasoning?: any, research?: any, sources?: any[], reasoningSteps?: ReasoningStep[]) => void;
   clearState: () => void;
+  updateMessageShareId: (messageId: string, shareId: string) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -169,5 +171,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   clearState: () => {
     set({ chats: [], activeChatId: null, messages: [] });
+  },
+
+  updateMessageShareId: (messageId, shareId) => {
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId ? { ...m, publicShareId: shareId } : m
+      )
+    }));
   }
 }));

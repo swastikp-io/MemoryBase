@@ -11,12 +11,7 @@ export interface SettingsState {
     tone: string[];
     preferredFormat: string[];
   };
-  appearance: {
-    themeMode: 'light' | 'dark';
-    themePreset: string;
-    lightTheme: string;
-    darkTheme: string;
-  };
+
 
   aiBehavior: {
     defaultModel: string;
@@ -24,6 +19,9 @@ export interface SettingsState {
   privacy: {
     chatHistory: boolean;
     trainingDataOptOut: boolean;
+  };
+  appearance: {
+    theme: 'light' | 'dark' | 'system';
   };
 
   updateProfile: (data: Partial<SettingsState['profile']>) => void;
@@ -52,11 +50,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     trainingDataOptOut: false,
   },
   appearance: {
-    themeMode: 'light',
-    themePreset: 'codex',
-    lightTheme: 'codex',
-    darkTheme: 'default',
+    theme: 'light',
   },
+
 
   updateProfile: (data) =>
     set((state) => ({ profile: { ...state.profile, ...data } })),

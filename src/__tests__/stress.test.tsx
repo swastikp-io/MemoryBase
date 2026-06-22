@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { ThemeProvider } from '../theme/ThemeProvider';
+
 import { ChatMessage } from '../components/ChatMessage';
 import { describe, test, expect, beforeAll } from 'vitest';
 
@@ -61,9 +61,9 @@ describe('Kimi K2.6 Stress & Rendering Tests', () => {
 
   test('Test A: Renders 15,000 word report without crashing', async () => {
     const { container } = render(
-      <ThemeProvider>
+
         <ChatMessage id="msg-1" role="model" content={largeTextContent} />
-      </ThemeProvider>
+
     );
     expect(container).toBeDefined();
     expect(await screen.findByText(/word14999/)).toBeDefined();
@@ -71,9 +71,9 @@ describe('Kimi K2.6 Stress & Rendering Tests', () => {
 
   test('Test B: Renders 1,000 line code block with Virtualization', async () => {
     const { container } = render(
-      <ThemeProvider>
+
         <ChatMessage id="msg-2" role="model" content={largeCodeBlock} />
-      </ThemeProvider>
+
     );
     
     // Check that the react-virtuoso list container mounted
@@ -88,9 +88,9 @@ describe('Kimi K2.6 Stress & Rendering Tests', () => {
 
   test('Test C: Renders 300-node file tree using custom FileTree component', async () => {
     render(
-      <ThemeProvider>
+
         <ChatMessage id="msg-3" role="model" content={largeFileTree} />
-      </ThemeProvider>
+
     );
     
     // The FileTree component renders "Project Structure" header
@@ -100,9 +100,9 @@ describe('Kimi K2.6 Stress & Rendering Tests', () => {
 
   test('Test D: Enterprise Architecture Document integrates TOC & Components smoothly', async () => {
     const { container } = render(
-      <ThemeProvider>
+
         <ChatMessage id="msg-4" role="model" content={complexArchitectureDoc} />
-      </ThemeProvider>
+
     );
     
     expect(screen.getByText('Enterprise Architecture')).toBeDefined();

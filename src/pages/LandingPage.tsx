@@ -1,20 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion } from "motion/react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, ArrowUpRight, Command, Sun, Moon } from "lucide-react";
-import { useSettingsStore } from "../store/settings";
-import { DotGrid } from "../components/ui/dot-grid";
-
+import { useNavigate } from "react-router-dom";
+import { Command } from "lucide-react";
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { appearance, updateAppearance } = useSettingsStore();
-  const themeMode = appearance?.themeMode || 'light';
-
-
-  const toggleTheme = () => {
-    updateAppearance({ themeMode: themeMode === 'light' ? 'dark' : 'light' });
-  };
 
   const handleTryMemoryBase = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -23,92 +13,88 @@ export const LandingPage: React.FC = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -15 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-screen font-sans selection:bg-[var(--textPrimary)] selection:text-[var(--background)] bg-[var(--background)] text-[var(--textPrimary)] overflow-x-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="relative w-screen h-screen overflow-hidden"
+      style={{ fontFamily: '"DM Sans", sans-serif' }}
     >
-      {/* Header */}
-      <nav className="fixed w-full left-0 top-0 z-50 flex items-center justify-between px-6 py-5 bg-[var(--background)]">
-        <div className="flex items-center gap-2">
-          <Command className="w-6 h-6 text-[var(--textPrimary)]" />
-          <span className="font-sans font-bold text-xl tracking-tight text-[var(--textPrimary)] uppercase">MemoryBase</span>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
+      `}</style>
+      {/* Background Image */}
+      <img
+        src="/assets/047cde24-ab9b-403e-b9b9-715631ee1695.png"
+        alt="Background"
+        className="absolute inset-0 w-full h-full object-cover z-0"
+      />
+
+      {/* Top Navigation */}
+      <nav className="absolute top-0 left-0 w-full z-10 flex items-center justify-between px-8 py-6">
+        {/* Left: Logo */}
+        <div className="flex items-center gap-2 text-black">
+          <Command className="w-6 h-6" />
+          <span className="font-bold text-xl tracking-tight">MemoryBase</span>
         </div>
 
-        <div className="flex items-center gap-4 text-[15px] font-medium">
-          <button 
-            onClick={toggleTheme}
-            className="p-2 rounded-full border border-[var(--border)] hover:bg-[var(--surfaceSecondary)] transition-colors text-[var(--textPrimary)]"
-            aria-label={themeMode === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
-            title={themeMode === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+        {/* Center: Links */}
+        <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center gap-8 text-black font-medium">
+          <button onClick={() => navigate('/docs')} className="hover:opacity-70 transition-opacity">Docs</button>
+          <a href="https://github.com/openfrm" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">GitHub</a>
+          <a href="mailto:openfrm.labs@gmail.com" className="hover:opacity-70 transition-opacity">Contact</a>
+        </div>
+
+        {/* Right: Log In Button */}
+        <div>
+          <button
+            onClick={() => navigate('/login')}
+            className="bg-black text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
           >
-            {themeMode === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            Log In
           </button>
-          <a href="mailto:openfrm.labs@gmail.com" className="hidden md:flex border border-[var(--border)] px-4 py-1.5 rounded-full hover:bg-[var(--surfaceSecondary)] transition-colors">
-            Contact
-          </a>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <main className="relative w-full overflow-hidden">
-        {/* Interactive Dot Grid Background */}
-        <DotGrid className="top-0 left-0" />
+      {/* Center Layout */}
+      <div className="absolute inset-0 flex flex-col md:flex-row items-center justify-center z-10 pointer-events-none w-full max-w-[1300px] mx-auto px-4">
+        <div className="flex-1 flex justify-center md:justify-end md:pr-8 mb-4 md:mb-0">
+          <span className="text-white text-2xl md:text-[26px] font-medium drop-shadow-md text-center md:text-right">
+            Built to make you
+          </span>
+        </div>
         
-        {/* Gradient Overlay to fade out at bottom */}
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--background)] to-transparent pointer-events-none" />
-
-        <div className="relative max-w-[1300px] mx-auto px-6 pt-32 md:pt-48 pb-32">
-          <div className="max-w-3xl mb-14">
-            <h1 className="text-[2.5rem] md:text-[2.5rem] lg:text-[2.5rem] font-sans font-medium leading-[1.05] tracking-tight text-[var(--textPrimary)] mb-8">
-              Built to make you <br className="hidden md:block" />
-              extraordinarily productive
-            </h1>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <button
-                onClick={handleTryMemoryBase}
-                className={`w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium rounded-full flex items-center justify-center gap-2 transition-colors duration-200 ease-in-out ${themeMode === 'light' ? 'bg-[#0D0D0D] text-[#FFFFFF] hover:bg-[#262626]' : 'bg-[var(--textPrimary)] text-[var(--background)] hover:bg-[var(--textSecondary)] text-black'}`}
-              >
-                Try MemoryBase <ArrowUpRight className="w-5 h-5 ml-1" />
-              </button>
-              <button
-                onClick={() => navigate('/docs')}
-                className="w-full sm:w-auto h-[3.25rem] px-8 text-[16px] font-medium bg-[var(--surfaceSecondary)] text-[var(--textPrimary)] rounded-full hover:bg-[var(--surface)] transition-colors flex items-center justify-center gap-2 border border-transparent"
-              >
-                Read Docs <ArrowRight className="w-5 h-5 ml-1" />
-              </button>
-            </div>
-          </div>
+        <div className="pointer-events-auto flex-shrink-0">
+          <button
+            onClick={handleTryMemoryBase}
+            className="flex items-center justify-center bg-black/40 backdrop-blur-md border border-white/20 text-white px-8 py-3.5 rounded-full font-medium hover:bg-black/60 transition-all shadow-lg whitespace-nowrap text-lg"
+          >
+            Ask MemoryBase
+          </button>
         </div>
-      </main>
 
-
-
-      {/* Footer */}
-      <footer className="bg-[var(--background)] text-[var(--textPrimary)] py-16 mt-10 border-t border-[var(--border)]">
-        <div className="max-w-[1300px] mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1 mb-16">
-          <div>
-            <h4 className="font-sans font-bold text-xl mb-6">Openfrm Labs</h4>
-            <p className="text-[var(--textSecondary)] text-sm leading-relaxed max-w-xs">
-              Built for humans. Powered by intelligent AI.
-            </p>
-          </div>
+        <div className="flex-1 flex justify-center md:justify-start md:pl-8 mt-4 md:mt-0">
+          <span className="text-white text-2xl md:text-[26px] font-medium drop-shadow-md text-center md:text-left">
+            Extraordinarily Productive
+          </span>
         </div>
-        <div className="max-w-[1300px] mx-auto px-6 pt-8 border-t border-[var(--border)] flex flex-col md:flex-row justify-between items-center text-sm font-medium text-[var(--textSecondary)]">
-          <div className="mb-4 md:mb-0">
-            © 2026 Openfrm Labs. All rights reserved.
-          </div>
-          <div className="flex gap-6">
-            <a href="https://x.com/openfrmlabs" className="hover:text-[var(--textPrimary)] transition-colors">Twitter</a>
-            <a href="https://www.linkedin.com/company/openfrm-labs" className="hover:text-[var(--textPrimary)] transition-colors">LinkedIn</a>
-            <a href="mailto:openfrm.labs@gmail.com" className="hover:text-[var(--textPrimary)] transition-colors">Contact</a>
-          </div>
+      </div>
+
+      {/* Bottom Area */}
+      <div className="absolute bottom-0 left-0 w-full z-10 px-8 pb-8 pt-4 flex flex-col md:flex-row items-center md:items-end justify-between pointer-events-none gap-6 md:gap-0">
+
+        {/* Left: Copyright */}
+        <div className="text-white/90 text-sm font-medium pointer-events-auto flex-1 w-full md:w-auto text-center md:text-left drop-shadow-md">
+          © 2026 Openfrm Labs. All rights reserved.
         </div>
-      </footer>
 
+        {/* Right: Social Links */}
+        <div className="flex justify-center md:justify-end gap-6 text-white/90 text-sm font-medium pointer-events-auto flex-1 w-full md:w-auto drop-shadow-md">
+          <a href="https://x.com/openfrmlabs" className="hover:text-white transition-colors">Twitter</a>
+          <a href="https://www.linkedin.com/company/openfrm-labs" className="hover:text-white transition-colors">LinkedIn</a>
+        </div>
 
+      </div>
     </motion.div>
   );
 };

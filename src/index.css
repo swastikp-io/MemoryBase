@@ -4,7 +4,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
-@custom-variant dark (&:is(.dark *));
+
 
 @theme {
   --font-serif: "Newsreader", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
@@ -197,38 +197,73 @@ textarea {
 }
 
 :root {
-  --background: oklch(1 0 0);
+  /* Tailwind Light Theme Tokens */
+  --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(0.985 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: oklch(0.985 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.145 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.4 0 0);
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: oklch(0.145 0 0 / 10%);
+  --input: oklch(0.145 0 0 / 15%);
+  --ring: oklch(0.145 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.96 0 0);
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.145 0 0 / 10%);
+  --sidebar-ring: oklch(0.145 0 0);
+
+  /* Chat Input Light Theme Tokens */
+  --chat-bg: #ffffff;
+  --chat-border: rgba(0,0,0,0.1);
+  --chat-text: #111827;
+  --chat-placeholder: #6b7280;
+  --chat-hover: rgba(0,0,0,0.05);
+  --chat-pill: rgba(0,0,0,0.05);
+  --chat-secondary: #4b5563;
+  --chat-primary: #111827;
+  --chat-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+  /* App Specific Light Theme Tokens */
+  --bg-primary: #ffffff;
+  --bg-sidebar: #f9f9f9;
+  --bg-input: color-mix(in srgb, #ffffff, black 4%);
+  --text-primary: #111827;
+  --text-secondary: color-mix(in srgb, #111827, #ffffff 40%);
+  --border-color: color-mix(in srgb, #ffffff, black 12%);
+  
+  --surface: color-mix(in srgb, #ffffff, black 2%);
+  --surfaceSecondary: color-mix(in srgb, #ffffff, black 5%);
+  --chat-bubble-user: #f3f3f3;
+  --textPrimary: #111827;
+  --textSecondary: color-mix(in srgb, #111827, #ffffff 40%);
+  --textTertiary: color-mix(in srgb, #111827, #ffffff 60%);
+  --accent: #e5e5e5;
+  --accentHover: color-mix(in srgb, #e5e5e5, black 5%);
+  --accentMuted: color-mix(in srgb, #e5e5e5, #ffffff 80%);
+  --accent-ring: color-mix(in srgb, #e5e5e5, transparent 70%);
+  
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
 }
 
 .dark {
@@ -263,4 +298,114 @@ textarea {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Chat Input Dark Theme Tokens */
+  --chat-bg: #0f0f10;
+  --chat-border: rgba(255,255,255,0.08);
+  --chat-text: #f5f5f5;
+  --chat-placeholder: #8b8b8b;
+  --chat-hover: rgba(255,255,255,0.08);
+  --chat-pill: rgba(255,255,255,0.08);
+  --chat-secondary: #b3b3b3;
+  --chat-primary: #ffffff;
+  --chat-shadow: none;
+
+  /* App Specific Dark Theme Tokens */
+  --bg-primary: #0a0a0a;
+  --bg-sidebar: #0a0a0a;
+  --bg-input: color-mix(in srgb, #0a0a0a, white 8%);
+  --text-primary: #ECECEC;
+  --text-secondary: color-mix(in srgb, #ECECEC, #0a0a0a 35%);
+  --border-color: color-mix(in srgb, #0a0a0a, white 15%);
+  
+  --surface: color-mix(in srgb, #0a0a0a, white 5%);
+  --surfaceSecondary: color-mix(in srgb, #0a0a0a, white 10%);
+  --chat-bubble-user: #3c3c3c;
+  --textPrimary: #ECECEC;
+  --textSecondary: color-mix(in srgb, #ECECEC, #0a0a0a 35%);
+  --textTertiary: color-mix(in srgb, #ECECEC, #0a0a0a 55%);
+  --accent: #3c3c3c;
+  --accentHover: color-mix(in srgb, #3c3c3c, white 10%);
+  --accentMuted: color-mix(in srgb, #3c3c3c, #0a0a0a 85%);
+  --accent-ring: color-mix(in srgb, #3c3c3c, transparent 70%);
+}
+
+/* Chat Input Custom Classes */
+.chat-container {
+  background: var(--chat-bg);
+  border: 1px solid var(--chat-border);
+  box-shadow: var(--chat-shadow);
+  border-radius: 28px;
+  transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease, color 200ms ease;
+}
+
+.chat-textarea {
+  background: transparent;
+  color: var(--chat-text);
+  font-size: 16px;
+  line-height: 1.6;
+}
+.chat-textarea::placeholder {
+  color: var(--chat-placeholder);
+}
+
+.chat-toolbar-btn {
+  background: transparent;
+  color: var(--chat-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-toolbar-btn:hover {
+  background: var(--chat-hover);
+}
+
+.chat-pill {
+  background: var(--chat-pill);
+  color: var(--chat-text);
+  transition: all 150ms ease;
+}
+.chat-pill:hover {
+  background: var(--chat-hover);
+}
+.chat-pill.active {
+  background: var(--chat-hover);
+  color: var(--chat-text);
+  border-color: transparent;
+}
+.chat-pill .icon {
+  color: var(--chat-secondary);
+}
+.chat-pill.active .icon {
+  color: var(--chat-text);
+}
+
+.chat-send-btn {
+  /* Using Tailwind bg-[var(--chat-primary)] on the element directly as requested or we can use it here */
+  background-color: var(--chat-primary);
+  /* The send button color text changes, user says: light mode #111827 / white, dark mode white / black. */
+  /* Wait, user says: "Light mode background: #111827; color: white; Dark mode background: white; color: black;" */
+  /* So --chat-primary is #111827 in light and #ffffff in dark. We need text color to flip. */
+  color: var(--chat-bg);
+  transition: all 150ms ease;
+}
+.chat-send-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-mic-btn {
+  background: transparent;
+  color: var(--chat-secondary);
+  transition: all 150ms ease;
+}
+.chat-mic-btn:hover {
+  background: var(--chat-hover);
 }

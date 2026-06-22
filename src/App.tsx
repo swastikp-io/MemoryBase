@@ -5,7 +5,7 @@ import { MainChat } from "./components/MainChat";
 import { useChatStore } from "./store/chatStore";
 
 import { DocsPage } from "./pages/DocsPage";
-import { LandingPageSkeleton } from "./components/landing/landing-page-skeleton";
+
 
 const LandingPage = React.lazy(() => {
   return Promise.all([
@@ -15,11 +15,14 @@ const LandingPage = React.lazy(() => {
 });
 import { AnimatePresence } from "motion/react";
 import { useSettingsStore } from "./store/settings";
-import { ThemeProvider } from "./theme/ThemeProvider";
+
 import { TooltipProvider } from "./components/ui/tooltip";
+import { ToastProvider } from "./components/ui/toast";
+import { SharePage } from "./pages/SharePage";
+
 
 function ChatApp() {
-  const { loadChats, chats, activeChatId, loadChat, createChat } = useChatStore();
+  const { loadChats } = useChatStore();
 
   useEffect(() => {
     const init = async () => {
@@ -44,31 +47,41 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={
-          <React.Suspense fallback={<LandingPageSkeleton />}>
+          <React.Suspense fallback={null}>
             <LandingPage />
           </React.Suspense>
         } />
         <Route path="/docs" element={<DocsPage />} />
         <Route path="/chat" element={<ChatApp />} />
+        <Route path="/share/:id" element={<SharePage />} />
 
       </Routes>
     </AnimatePresence>
   );
 }
 
-import { useThemeValidator } from "./hooks/useThemeValidator";
-
 export default function App() {
-  useThemeValidator();
+  const theme = useSettingsStore((state) => state.appearance.theme);
 
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(theme);
+    }
+  }, [theme]);
 
   return (
     <BrowserRouter>
-      <ThemeProvider>
+      <ToastProvider>
         <TooltipProvider>
           <AnimatedRoutes />
         </TooltipProvider>
-      </ThemeProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

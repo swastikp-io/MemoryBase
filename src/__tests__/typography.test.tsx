@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { ThemeProvider } from '../theme/ThemeProvider';
+
 
 import { describe, test, expect, beforeAll } from 'vitest';
 
@@ -35,9 +35,9 @@ describe('Typography & Theme Validation', () => {
 
   test('Strong tags (labels) inherit theme foreground color instead of white', () => {
     render(
-      <ThemeProvider>
+
         <MockMarkdownResponse content="" />
-      </ThemeProvider>
+
     );
     
     const strongTag = screen.getByText('React Frontend');
@@ -50,9 +50,9 @@ describe('Typography & Theme Validation', () => {
 
   test('Markdown bullet lists render text properly with contrast', () => {
     render(
-      <ThemeProvider>
+
         <MockMarkdownResponse content="" />
-      </ThemeProvider>
+
     );
     
     const listItem = screen.getAllByText(/Handles the user interface/i)[0];

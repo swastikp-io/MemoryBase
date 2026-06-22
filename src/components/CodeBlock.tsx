@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Copy, Download, Maximize2, Minimize2, ChevronDown, ChevronRight, FileCode2, WrapText, ListOrdered } from 'lucide-react';
+import { Check, Copy, Download, Maximize2, Minimize2, WrapText, ListOrdered, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Prism as SyntaxHighlighter, createElement } from 'react-syntax-highlighter';
 import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Virtuoso } from 'react-virtuoso';
+import { useSettingsStore } from '../store/settings';
+import { Tooltip } from './ui/tooltip';
 
 
 interface CodeBlockProps {
@@ -19,7 +21,37 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, code, isGenerati
   const [wrapLines, setWrapLines] = useState(true);
   const [showLineNumbers, setShowLineNumbers] = useState(false);
 
-  const syntaxStyle = vscDarkPlus;
+  const theme = useSettingsStore((state) => state.appearance.theme);
+  const [resolvedTheme, setResolvedTheme] = useState('dark');
+
+  useEffect(() => {
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      setResolvedTheme(mediaQuery.matches ? 'dark' : 'light');
+      
+      const handler = (e: MediaQueryListEvent) => {
+        setResolvedTheme(e.matches ? 'dark' : 'light');
+      };
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else {
+      setResolvedTheme(theme);
+    }
+  }, [theme]);
+
+  const syntaxStyle = React.useMemo(() => {
+    const baseStyle = resolvedTheme === 'dark' ? vscDarkPlus : oneLight;
+    const cleanStyle: any = {};
+    for (const [key, value] of Object.entries(baseStyle)) {
+      if (typeof value === 'object' && value !== null) {
+        const { background, backgroundColor, ...rest } = value as any;
+        cleanStyle[key] = rest;
+      } else {
+        cleanStyle[key] = value;
+      }
+    }
+    return cleanStyle;
+  }, [resolvedTheme]);
 
   const cleanCode = code.replace(/\n$/, '');
 
@@ -104,26 +136,20 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, code, isGenerati
 
   const blockContent = (
     <div 
-      className={`group relative flex flex-col rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surfaceSecondary)] shadow-lg transition-all duration-300 ${
-        isFullscreen ? 'fixed inset-4 md:inset-10 z-[100] h-auto max-h-none shadow-2xl flex flex-col' : 'my-5 w-full'
+      className={`group relative flex flex-col rounded-2xl overflow-hidden bg-[var(--code-block-bg)] transition-all duration-300 ${
+        isFullscreen ? 'fixed inset-4 md:inset-10 z-[100] h-auto max-h-none shadow-2xl flex flex-col border border-[var(--border)]' : 'my-5 w-full'
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[var(--surfaceSecondary)] select-none">
-        <div className="flex items-center gap-2 text-text-secondary">
-          <button 
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-0.5 hover:bg-[var(--surfaceSecondary)] rounded-md transition-colors text-text-secondary hover:text-text-primary"
-          >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          <FileCode2 className="w-4 h-4 ml-1" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-primary/90">
+      <div className="flex items-center justify-between px-4 py-3 bg-[var(--code-block-bg)] select-none">
+        <div className="flex items-center gap-2 text-text-primary">
+          <span className="font-mono font-bold tracking-tighter text-sm ml-1">{'</>'}</span>
+          <span className="text-[15px] font-semibold capitalize tracking-wide text-text-primary">
             {language || 'text'}
           </span>
         </div>
         
-        <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-2 opacity-100 transition-opacity">
           {isFullscreen && (
             <>
               <button
@@ -131,43 +157,27 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, code, isGenerati
                 className={`p-1.5 rounded-lg transition-all active:scale-95 ${wrapLines ? 'text-[var(--accent)] bg-[var(--accentMuted)]' : 'text-text-secondary hover:text-[var(--background)] hover:bg-[var(--accent)]'}`}
                 title={wrapLines ? "Disable word wrap" : "Enable word wrap"}
               >
-                <WrapText className="w-3.5 h-3.5" />
+                <WrapText className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowLineNumbers(!showLineNumbers)}
                 className={`p-1.5 rounded-lg transition-all active:scale-95 mr-1 ${showLineNumbers ? 'text-[var(--accent)] bg-[var(--accentMuted)]' : 'text-text-secondary hover:text-[var(--background)] hover:bg-[var(--accent)]'}`}
                 title={showLineNumbers ? "Hide line numbers" : "Show line numbers"}
               >
-                <ListOrdered className="w-3.5 h-3.5" />
+                <ListOrdered className="w-4 h-4" />
               </button>
               <div className="w-px h-4 bg-[var(--border)] mx-1"></div>
             </>
           )}
           
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-[var(--background)] hover:bg-[var(--accent)] transition-all active:scale-95"
-            title="Copy code"
-          >
-            {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isCopied ? 'Copied!' : 'Copy'}</span>
-          </button>
-          
-          <button
-            onClick={handleDownload}
-            className="p-1.5 rounded-lg text-text-secondary hover:text-[var(--background)] hover:bg-[var(--accent)] transition-all active:scale-95"
-            title="Download snippet"
-          >
-            <Download className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={toggleFullscreen}
-            className="p-1.5 rounded-lg text-text-secondary hover:text-[var(--background)] hover:bg-[var(--accent)] transition-all active:scale-95 ml-1"
-            title={isFullscreen ? "Exit fullscreen" : "Expand to fullscreen"}
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
+          <Tooltip content={isCopied ? "Copied" : "Copy"}>
+            <button
+              onClick={handleCopy}
+              className="p-1.5 rounded-full text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-95"
+            >
+              {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </button>
+          </Tooltip>
         </div>
       </div>
 

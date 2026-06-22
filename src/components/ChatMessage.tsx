@@ -185,7 +185,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
       // Inline code (no language specified and no newlines)
       if (!match && !hasNewline) {
         return (
-          <code className="rounded-md bg-[var(--surfaceSecondary)] px-[0.35rem] py-[0.15rem] text-[0.9em] font-mono text-[var(--accent)] font-medium whitespace-nowrap" {...props}>
+          <code className="rounded-md bg-[var(--code-block-bg)] px-[0.35rem] py-[0.15rem] text-[0.9em] font-mono text-[var(--textPrimary)] font-medium whitespace-nowrap" {...props}>
             {children}
           </code>
         );
@@ -394,7 +394,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                     <ThumbsDown className="w-4 h-4" />
                   </button>
                 </Tooltip>
-                <ShareButton size="sm" icon={true} contentToShare={content} />
               </div>
             )}
           </div>

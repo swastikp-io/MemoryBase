@@ -253,6 +253,7 @@ textarea {
   --surface: color-mix(in srgb, #ffffff, black 2%);
   --surfaceSecondary: color-mix(in srgb, #ffffff, black 5%);
   --chat-bubble-user: #f3f3f3;
+  --code-block-bg: #f3f3f3;
   --textPrimary: #111827;
   --textSecondary: color-mix(in srgb, #111827, #ffffff 40%);
   --textTertiary: color-mix(in srgb, #111827, #ffffff 60%);
@@ -321,6 +322,7 @@ textarea {
   --surface: color-mix(in srgb, #0a0a0a, white 5%);
   --surfaceSecondary: color-mix(in srgb, #0a0a0a, white 10%);
   --chat-bubble-user: #3c3c3c;
+  --code-block-bg: color-mix(in srgb, #0a0a0a, white 10%);
   --textPrimary: #ECECEC;
   --textSecondary: color-mix(in srgb, #ECECEC, #0a0a0a 35%);
   --textTertiary: color-mix(in srgb, #ECECEC, #0a0a0a 55%);

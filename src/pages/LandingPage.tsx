@@ -41,7 +41,7 @@ export const LandingPage: React.FC = () => {
         {/* Center: Links */}
         <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center justify-center gap-8 text-black font-medium">
           <button onClick={() => navigate('/docs')} className="hover:opacity-70 transition-opacity">Docs</button>
-          <a href="https://github.com/openfrm" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">GitHub</a>
+          <a href="https://github.com/swastikp-io/MemoryBase" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">GitHub</a>
           <a href="mailto:openfrm.labs@gmail.com" className="hover:opacity-70 transition-opacity">Contact</a>
         </div>
 
@@ -63,7 +63,7 @@ export const LandingPage: React.FC = () => {
             Built to make you
           </span>
         </div>
-        
+
         <div className="pointer-events-auto flex-shrink-0">
           <button
             onClick={handleTryMemoryBase}

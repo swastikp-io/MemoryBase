@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Copy, Check, Bot, ThumbsUp, ThumbsDown, Globe, Edit2, Volume2, Square } from "lucide-react";
+import { Copy, Check, Bot, ThumbsUp, ThumbsDown, Globe, Edit2, Volume2, Square, ChevronDown, ChevronUp } from "lucide-react";
 import { useSettingsStore } from "../store/settings";
 import { CodeBlock } from "./CodeBlock";
 import { motion, AnimatePresence } from "motion/react";
@@ -43,6 +43,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
   const [editValue, setEditValue] = useState(content);
   const [debouncedContent, setDebouncedContent] = useState(content);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -252,7 +253,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                   </div>
                 </div>
               ) : (
-                <div className="bg-[var(--chat-bubble-user)] text-[var(--textPrimary)] px-5 py-3 rounded-3xl text-base whitespace-pre-wrap shadow-sm rounded-tr-md">
+                <div className="bg-[var(--chat-bubble-user)] text-[var(--textPrimary)] px-5 py-4 rounded-3xl text-[15px] leading-relaxed whitespace-pre-wrap shadow-sm rounded-tr-md flex flex-col">
                   {images && images.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-2">
                       {images.map((img, i) => (
@@ -260,7 +261,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ id, role, content, ima
                       ))}
                     </div>
                   )}
-                  {content}
+                  <div className="relative">
+                    {!isExpanded && content.length > 200 ? (
+                      <>
+                        {content.slice(0, 180)}
+                        <span className="opacity-40">{content.slice(180, 200)}</span>
+                      </>
+                    ) : (
+                      content
+                    )}
+                  </div>
+                  {content.length > 200 && (
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="flex items-center gap-1 mt-2.5 text-[14px] font-medium text-text-primary hover:text-text-secondary transition-colors self-start"
+                    >
+                      {isExpanded ? 'Show less' : 'Show more'}
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
               )}
               

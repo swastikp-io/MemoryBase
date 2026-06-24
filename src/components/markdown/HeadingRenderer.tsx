@@ -1,7 +1,7 @@
 import React from 'react';
 
 // Utilities for generating an ID from heading text
-export const generateIdFromText = (children: React.ReactNode): string => {
+const generateIdFromText = (children: React.ReactNode): string => {
   let text = '';
   React.Children.forEach(children, (child) => {
     if (typeof child === 'string') {

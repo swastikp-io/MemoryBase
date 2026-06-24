@@ -1,4 +1,4 @@
-export const brailleLoaderVariants = [
+const brailleLoaderVariants = [
   "breathe",
   "pulse",
   "orbit",
@@ -29,7 +29,7 @@ export const brailleLoaderVariants = [
 export type BrailleLoaderVariant = (typeof brailleLoaderVariants)[number];
 export type BrailleLoaderSpeed = "slow" | "normal" | "fast";
 
-export const speedToDuration: Record<BrailleLoaderSpeed, number> = {
+const speedToDuration: Record<BrailleLoaderSpeed, number> = {
   slow: 3000,
   normal: 2400,
   fast: 1200,
@@ -48,7 +48,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-export function seededRandom(seed: number): () => number {
+function seededRandom(seed: number): () => number {
   let s = seed;
   return () => {
     s = (s * 1664525 + 1013904223) & 0xffffffff;
@@ -89,7 +89,7 @@ type PrecomputeContext = {
 
 const contextCache = new Map<string, PrecomputeContext>();
 
-export function getPrecomputeContext(width: number, height: number): PrecomputeContext {
+function getPrecomputeContext(width: number, height: number): PrecomputeContext {
   const key = `${width}x${height}`;
   let ctx = contextCache.get(key);
   if (!ctx) {
@@ -124,7 +124,7 @@ export function getPrecomputeContext(width: number, height: number): PrecomputeC
   return ctx;
 }
 
-export const VARIANT_CONFIGS: Record<string, VariantConfig> = {
+const VARIANT_CONFIGS: Record<string, VariantConfig> = {
   pendulum: {
     totalFrames: 120,
     interval: 12,

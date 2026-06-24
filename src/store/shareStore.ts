@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Message } from './chatStore';
 
-export interface ShareRecord {
+interface ShareRecord {
   id: string;
   conversationId: string;
   message: Message;

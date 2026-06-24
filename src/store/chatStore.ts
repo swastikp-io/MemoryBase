@@ -8,15 +8,15 @@ export interface ReasoningPhase {
   isComplete: boolean;
 }
 
-export type ResearchStatus = "planning" | "running" | "completed" | "cancelled" | "failed";
+type ResearchStatus = "planning" | "running" | "completed" | "cancelled" | "failed";
 
-export interface ResearchStep {
+interface ResearchStep {
   id: string;
   title: string;
   status: "pending" | "running" | "completed" | "failed";
 }
 
-export interface ResearchEvent {
+interface ResearchEvent {
   id: string;
   timestamp: number;
   message: string;
@@ -48,7 +48,7 @@ export interface Message {
   publicShareId?: string;
 }
 
-export interface ChatSession {
+interface ChatSession {
   id: string;
   title: string;
   updatedAt: string;
